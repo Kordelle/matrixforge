@@ -4,21 +4,6 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* World map animations */
-@keyframes route-march {
-  to { stroke-dashoffset: -24; }
-}
-@keyframes factory-pulse {
-  0%, 100% { r: 8; opacity: 0.15; }
-  50%       { r: 15; opacity: 0.04; }
-}
-.route-winner {
-  animation: route-march 1.1s linear infinite;
-}
-.factory-pulse {
-  animation: factory-pulse 2s ease-in-out infinite;
-}
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

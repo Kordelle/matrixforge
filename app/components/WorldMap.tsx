@@ -1,19 +1,8 @@
 'use client';
 
-import {
-  ComposableMap,
-  Geographies,
-  Geography,
-  Graticule,
-  Line,
-  Marker,
-  Sphere,
-} from 'react-simple-maps';
-
+import { useEffect } from 'react';
+import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 import type { Factory } from '@/app/data/syntheticCatalog';
-
-const GEO_URL =
-  'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 interface WorldMapProps {
   factories: Factory[];
@@ -21,117 +10,178 @@ interface WorldMapProps {
   targetCity: { name: string; lat: number; lng: number };
 }
 
-export default function WorldMap({ factories, winningFactoryId, targetCity }: WorldMapProps) {
+const DARK_STYLES: google.maps.MapTypeStyle[] = [
+  { elementType: 'geometry', stylers: [{ color: '#1a2e4a' }] },
+  { elementType: 'labels.text.fill', stylers: [{ color: '#94a3b8' }] },
+  { elementType: 'labels.text.stroke', stylers: [{ color: '#0a1628' }] },
+  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0a1628' }] },
+  { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#1e3a5f' }] },
+  { featureType: 'road', stylers: [{ visibility: 'off' }] },
+  { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+  { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+  { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2d4a6e' }] },
+];
+
+// ── Route polyline ────────────────────────────────────────────────────────────
+interface RoutePolylineProps {
+  from: google.maps.LatLngLiteral;
+  to: google.maps.LatLngLiteral;
+  isWinner: boolean;
+}
+
+function RoutePolyline({ from, to, isWinner }: RoutePolylineProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const line = new google.maps.Polyline({
+      path: [from, to],
+      geodesic: true,
+      strokeColor: isWinner ? '#34d399' : '#334155',
+      strokeOpacity: isWinner ? 0.9 : 0.4,
+      strokeWeight: isWinner ? 2.5 : 1.5,
+    });
+    line.setMap(map);
+    return () => line.setMap(null);
+  }, [map, from.lat, from.lng, to.lat, to.lng, isWinner]);
+
+  return null;
+}
+
+// ── Dot marker ────────────────────────────────────────────────────────────────
+interface DotMarkerProps {
+  position: google.maps.LatLngLiteral;
+  label: string;
+  fillColor: string;
+  strokeColor: string;
+  scale?: number;
+}
+
+function DotMarker({ position, label, fillColor, strokeColor, scale = 7 }: DotMarkerProps) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+    const marker = new google.maps.Marker({
+      position,
+      map,
+      title: label,
+      icon: {
+        path: google.maps.SymbolPath.CIRCLE,
+        scale,
+        fillColor,
+        fillOpacity: 1,
+        strokeColor,
+        strokeWeight: 2,
+      },
+    });
+    return () => marker.setMap(null);
+  }, [map, position.lat, position.lng, fillColor, strokeColor, scale, label]);
+
+  return null;
+}
+
+// ── Inner content (must be a child of <Map>) ──────────────────────────────────
+function MapContent({ factories, winningFactoryId, targetCity }: WorldMapProps) {
   return (
-    <div
-      className="w-full rounded-lg border border-border overflow-hidden"
-      style={{ maxHeight: 300, background: '#0a1628' }}
-      aria-label="Supply chain route map"
-    >
-      <ComposableMap
-        projection="geoEquirectangular"
-        projectionConfig={{ scale: 153, center: [0, 10] }}
-        style={{ width: '100%', height: '100%', maxHeight: 300 }}
+    <>
+      {/* Non-winning routes first so winning route renders on top */}
+      {factories
+        .filter((f) => f.id !== winningFactoryId)
+        .map((f) => (
+          <RoutePolyline
+            key={`route-${f.id}`}
+            from={{ lat: f.lat, lng: f.lng }}
+            to={{ lat: targetCity.lat, lng: targetCity.lng }}
+            isWinner={false}
+          />
+        ))}
+      {factories
+        .filter((f) => f.id === winningFactoryId)
+        .map((f) => (
+          <RoutePolyline
+            key={`route-${f.id}`}
+            from={{ lat: f.lat, lng: f.lng }}
+            to={{ lat: targetCity.lat, lng: targetCity.lng }}
+            isWinner={true}
+          />
+        ))}
+
+      {/* Factory markers */}
+      {factories.map((f) => {
+        const isWinner = f.id === winningFactoryId;
+        return (
+          <DotMarker
+            key={`marker-${f.id}`}
+            position={{ lat: f.lat, lng: f.lng }}
+            label={f.name}
+            fillColor={isWinner ? '#34d399' : '#38bdf8'}
+            strokeColor={isWinner ? '#052e16' : '#0c4a6e'}
+            scale={isWinner ? 9 : 7}
+          />
+        );
+      })}
+
+      {/* Target city */}
+      <DotMarker
+        position={{ lat: targetCity.lat, lng: targetCity.lng }}
+        label={targetCity.name}
+        fillColor="#f59e0b"
+        strokeColor="#451a03"
+        scale={9}
+      />
+    </>
+  );
+}
+
+// ── Public component ──────────────────────────────────────────────────────────
+export default function WorldMap({ factories, winningFactoryId, targetCity }: WorldMapProps) {
+  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+  if (!apiKey) {
+    return (
+      <div
+        className="w-full rounded-lg border border-border flex items-center justify-center"
+        style={{ height: 300, background: '#0a1628' }}
+        aria-label="Supply chain route map"
       >
-        {/* Ocean */}
-        <Sphere id="rsm-sphere" stroke="#1e3a5f" strokeWidth={0.5} fill="#0a1628" />
+        <p className="text-sm text-muted-foreground">
+          Set{' '}
+          <code className="font-mono text-xs">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>
+          {' '}to enable map
+        </p>
+      </div>
+    );
+  }
 
-        {/* Lat/lng grid */}
-        <Graticule stroke="#0f2942" strokeWidth={0.4} />
+  const allLats = [...factories.map((f) => f.lat), targetCity.lat];
+  const allLngs = [...factories.map((f) => f.lng), targetCity.lng];
+  const center: google.maps.LatLngLiteral = {
+    lat: (Math.min(...allLats) + Math.max(...allLats)) / 2,
+    lng: (Math.min(...allLngs) + Math.max(...allLngs)) / 2,
+  };
 
-        {/* Country fills */}
-        <Geographies geography={GEO_URL}>
-          {({ geographies }) =>
-            geographies.map((geo) => (
-              <Geography
-                key={geo.rsmKey}
-                geography={geo}
-                fill="#1a2e4a"
-                stroke="#2d4a6e"
-                strokeWidth={0.4}
-                style={{
-                  default: { outline: 'none' },
-                  hover:   { outline: 'none' },
-                  pressed: { outline: 'none' },
-                }}
-              />
-            ))
-          }
-        </Geographies>
-
-        {/* Route lines — non-winners first so winner renders on top */}
-        {factories
-          .filter((f) => f.id !== winningFactoryId)
-          .map((f) => (
-            <Line
-              key={`line-${f.id}`}
-              from={[f.lng, f.lat]}
-              to={[targetCity.lng, targetCity.lat]}
-              stroke="#334155"
-              strokeWidth={1}
-              strokeDasharray="4 5"
-              strokeLinecap="round"
-              opacity={0.5}
-            />
-          ))}
-
-        {/* Winning route — animated dashed */}
-        {factories
-          .filter((f) => f.id === winningFactoryId)
-          .map((f) => (
-            <Line
-              key={`line-${f.id}`}
-              from={[f.lng, f.lat]}
-              to={[targetCity.lng, targetCity.lat]}
-              stroke="#34d399"
-              strokeWidth={2}
-              strokeDasharray="8 4"
-              strokeLinecap="round"
-              className="route-winner"
-            />
-          ))}
-
-        {/* Factory markers */}
-        {factories.map((f) => {
-          const isWinner = f.id === winningFactoryId;
-          return (
-            <Marker key={f.id} coordinates={[f.lng, f.lat]}>
-              {isWinner && (
-                <circle r={10} fill="#34d399" opacity={0.15} className="factory-pulse" />
-              )}
-              <circle
-                r={5}
-                fill={isWinner ? '#34d399' : '#38bdf8'}
-                stroke={isWinner ? '#052e16' : '#0c4a6e'}
-                strokeWidth={1.5}
-              />
-              <text
-                x={8}
-                y={4}
-                fontSize={8}
-                fill={isWinner ? '#34d399' : '#94a3b8'}
-                style={{ fontFamily: 'ui-monospace, monospace', pointerEvents: 'none' }}
-              >
-                {f.name}
-              </text>
-            </Marker>
-          );
-        })}
-
-        {/* Target city */}
-        <Marker coordinates={[targetCity.lng, targetCity.lat]}>
-          <circle r={6} fill="#f59e0b" stroke="#451a03" strokeWidth={1.5} />
-          <text
-            x={9}
-            y={4}
-            fontSize={8}
-            fill="#fbbf24"
-            style={{ fontFamily: 'ui-monospace, monospace', pointerEvents: 'none' }}
-          >
-            {targetCity.name}
-          </text>
-        </Marker>
-      </ComposableMap>
-    </div>
+  return (
+    <APIProvider apiKey={apiKey}>
+      <div
+        className="w-full rounded-lg border border-border overflow-hidden"
+        style={{ height: 300 }}
+        aria-label="Supply chain route map"
+      >
+        <Map
+          defaultCenter={center}
+          defaultZoom={2}
+          disableDefaultUI
+          gestureHandling="cooperative"
+          styles={DARK_STYLES}
+        >
+          <MapContent
+            factories={factories}
+            winningFactoryId={winningFactoryId}
+            targetCity={targetCity}
+          />
+        </Map>
+      </div>
+    </APIProvider>
   );
 }

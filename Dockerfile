@@ -12,6 +12,10 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# NEXT_PUBLIC vars are inlined at build time by the bundler
+ARG NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+ENV NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+
 # FASTAPI_URL is only used server-side; no need to expose as NEXT_PUBLIC_
 ENV NEXT_TELEMETRY_DISABLED=1
 
