@@ -5,8 +5,21 @@ import { z } from 'zod';
 import { clientCities } from '@/app/data/syntheticCatalog';
 import type { OptimizationResult, ParsedRequest } from '@/lib/types';
 
-// OpenAI client — server-side only, key never reaches the client bundle
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+// Prevent Next.js from statically rendering this route at build time
+export const dynamic = 'force-dynamic';
+
+// OpenAI client — server-side only, lazily initialized at request time
+// so next build never evaluates it without a key present.
+let _openai: OpenAI | null = null;
+function getOpenAI(): OpenAI {
+  if (!_openai) {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error('OPENAI_API_KEY environment variable is not set');
+    }
+    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  }
+  return _openai;
+}
 
 // ---------------------------------------------------------------------------
 // Input validation schemas — two paths:
@@ -113,7 +126,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     let llmRaw: string | null = null;
     try {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         temperature: 0,
         response_format: { type: 'json_object' },
