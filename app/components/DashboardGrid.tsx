@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import type { OptimizationResult, OptimizationWeights, SolverMode } from '@/lib/types';
-import { factories } from '@/app/data/syntheticCatalog';
+import { factories, catalogItems } from '@/app/data/syntheticCatalog';
 import InputPanel from './InputPanel';
 import KpiCards from './KpiCards';
 import MetricsChart from './MetricsChart';
@@ -228,8 +228,12 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
                 <p className="text-sm font-semibold text-foreground">Run your first analysis</p>
                 <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed max-w-md">
                   Describe a manufacturing project on the left. MatrixForge parses it with AI, then
-                  scores every component configuration across cost, carbon footprint, and delivery
-                  speed — recommending the optimal factory and SKU for your stated priorities.
+                  scores every factory × component pairing across cost, carbon, and freight
+                  — resolving the global optimum across{' '}
+                  <span className="text-foreground font-medium">{catalogItems.length} SKUs</span> and{' '}
+                  <span className="text-foreground font-medium">{factories.length} manufacturing nodes</span>{' '}
+                  in milliseconds. Architecture is Vector DB ready for enterprise catalog migration
+                  at scale.
                 </p>
               </div>
               <div className="flex flex-col gap-2">

@@ -79,7 +79,7 @@ Rules:
 - weights must sum to exactly 1.0
 - Infer weights from stated priorities: "low carbon" = high carbonWeight, "fast delivery" = high speedWeight, "low cost" = high costWeight
 - Default equal weights (0.33, 0.33, 0.34) if no priorities stated
-- targetLocation must be one of: "Chicago, IL" | "New York, NY" | "Los Angeles, CA" | "São Paulo, Brazil" | "London, UK" | "Cairo, Egypt" | "Dubai, UAE" | "Singapore" | "Tokyo, Japan" | "Sydney, Australia" — pick the geographically closest match
+- targetLocation must be one of: "Chicago, IL" | "New York, NY" | "Los Angeles, CA" | "Toronto, Canada" | "Mexico City, Mexico" | "São Paulo, Brazil" | "London, UK" | "Frankfurt, Germany" | "Cairo, Egypt" | "Dubai, UAE" | "Mumbai, India" | "Singapore" | "Tokyo, Japan" | "Seoul, South Korea" | "Sydney, Australia" — pick the geographically closest match
 - Default volume to 100 if not specified
 - Return ONLY the JSON object, no prose`;
 
