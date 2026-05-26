@@ -38,8 +38,8 @@ function RoutePolyline({ from, to, isWinner }: RoutePolylineProps) {
     const line = new google.maps.Polyline({
       path: [from, to],
       geodesic: true,
-      strokeColor: isWinner ? '#34d399' : '#334155',
-      strokeOpacity: isWinner ? 0.9 : 0.4,
+      strokeColor: isWinner ? '#34d399' : '#64748b',
+      strokeOpacity: isWinner ? 0.9 : 0.65,
       strokeWeight: isWinner ? 2.5 : 1.5,
     });
     line.setMap(map);

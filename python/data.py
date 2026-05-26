@@ -98,9 +98,16 @@ CATALOG_ITEMS: list[CatalogItem] = [
 # Target Cities Directory (for Haversine routing)
 # ---------------------------------------------------------------------------
 CLIENT_CITIES: list[ClientCity] = [
-    {"name": "Chicago, IL", "lat": 41.8781, "lng": -87.6298},
-    {"name": "New York, NY", "lat": 40.7128, "lng": -74.0060},
-    {"name": "London, UK", "lat": 51.5074, "lng": -0.1278},
+    {"name": "Chicago, IL",       "lat":  41.8781, "lng":  -87.6298},
+    {"name": "New York, NY",      "lat":  40.7128, "lng":  -74.0060},
+    {"name": "Los Angeles, CA",   "lat":  34.0522, "lng": -118.2437},
+    {"name": "São Paulo, Brazil", "lat": -23.5505, "lng":  -46.6333},
+    {"name": "London, UK",        "lat":  51.5074, "lng":   -0.1278},
+    {"name": "Cairo, Egypt",      "lat":  30.0444, "lng":   31.2357},
+    {"name": "Dubai, UAE",        "lat":  25.2048, "lng":   55.2708},
+    {"name": "Singapore",         "lat":   1.3521, "lng":  103.8198},
+    {"name": "Tokyo, Japan",      "lat":  35.6762, "lng":  139.6503},
+    {"name": "Sydney, Australia", "lat": -33.8688, "lng":  151.2093},
 ]
 
 # Lookup index for fast factory resolution by id
