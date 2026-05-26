@@ -173,7 +173,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // 2. POST to FastAPI compute engine
-  const fastapiUrl = process.env.FASTAPI_URL ?? 'http://localhost:8000';
+  const fastapiUrl = process.env.FASTAPI_URL ?? 'http://localhost:7431';
 
   let result: OptimizationResult;
   try {
@@ -195,7 +195,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(
       {
         error:
-          'Compute engine unreachable. Ensure python/main.py is running on port 8000 (uvicorn main:app --reload).',
+          'Compute engine unreachable. Ensure python/main.py is running on port 7431 (uvicorn main:app --reload).',
       },
       { status: 502 }
     );

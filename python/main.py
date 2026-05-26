@@ -1,7 +1,7 @@
 """MatrixForge Compute Engine — FastAPI entry point.
 
 Run from the python/ directory:
-  uvicorn main:app --reload --port 8000
+  uvicorn main:app --reload --port 7431
 
 The Next.js API route at app/api/optimize/route.ts calls POST /optimize.
 """
@@ -21,7 +21,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=["http://localhost:7430"],
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )

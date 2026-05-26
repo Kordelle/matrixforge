@@ -4,9 +4,9 @@ services:
       context: ./python
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "7431:7431"
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7431/health')"]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -17,11 +17,11 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "3000:3000"
+      - "7430:7430"
     env_file:
       - .env.local
     environment:
-      - FASTAPI_URL=http://compute:8000
+      - FASTAPI_URL=http://compute:7431
     depends_on:
       compute:
         condition: service_healthy

@@ -88,7 +88,7 @@ Copy `.env.local.example` to `.env.local` and add your OpenAI API key:
 
 ```
 OPENAI_API_KEY=sk-...
-FASTAPI_URL=http://localhost:8000
+FASTAPI_URL=http://localhost:7431
 ```
 
 Then start both services:
@@ -97,14 +97,14 @@ Then start both services:
 docker compose up --build
 ```
 
-Open http://localhost:3000. The `web` service waits for the `compute` health check to pass before starting.
+Open http://localhost:7430. The `web` service waits for the `compute` health check to pass before starting.
 
 ## Running Locally (without Docker)
 
 **Frontend:**
 ```bash
 npm install
-npm run dev          # http://localhost:3000
+npm run dev          # http://localhost:7430
 ```
 
 **Compute service** (separate terminal):
@@ -112,17 +112,17 @@ npm run dev          # http://localhost:3000
 python -m uvicorn main:app \
   --app-dir c:/code/matrixforge/python \
   --reload --reload-dir c:/code/matrixforge/python \
-  --port 8000
+  --port 7431
 ```
 
-Verify the compute service: `GET http://localhost:8000/health` → `{"status":"ok","service":"matrixforge-compute"}`
+Verify the compute service: `GET http://localhost:7431/health` → `{"status":"ok","service":"matrixforge-compute"}`
 
 ## Environment Variables
 
 | Variable | Where | Description |
 |---|---|---|
 | `OPENAI_API_KEY` | `.env.local` | OpenAI secret key — server-side only, never reaches the client bundle |
-| `FASTAPI_URL` | `.env.local` / compose env | Base URL of the Python compute service (`http://localhost:8000` locally, `http://compute:8000` in Docker) |
+| `FASTAPI_URL` | `.env.local` / compose env | Base URL of the Python compute service (`http://localhost:7431` locally, `http://compute:7431` in Docker) |
 
 ## Notes
 
