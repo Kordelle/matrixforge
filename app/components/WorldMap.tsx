@@ -1,6 +1,19 @@
 'use client';
 
+import {
+  ComposableMap,
+  Geographies,
+  Geography,
+  Graticule,
+  Line,
+  Marker,
+  Sphere,
+} from 'react-simple-maps';
+
 import type { Factory } from '@/app/data/syntheticCatalog';
+
+const GEO_URL =
+  'https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json';
 
 interface WorldMapProps {
   factories: Factory[];
@@ -8,186 +21,117 @@ interface WorldMapProps {
   targetCity: { name: string; lat: number; lng: number };
 }
 
-const W = 800;
-const H = 400;
-
-function proj(lng: number, lat: number) {
-  return {
-    x: ((lng + 180) / 360) * W,
-    y: ((90 - lat) / 180) * H,
-  };
-}
-
-// Approximate bounding boxes [minLng, maxLat, maxLng, minLat]
-const LAND_MASSES: [number, number, number, number][] = [
-  [-168, 72, -52, 18],  // North America
-  [-82, 14, -34, -56],  // South America
-  [-10, 72, 40, 35],    // Europe
-  [-20, 38, 55, -35],   // Africa
-  [25, 78, 180, 0],     // Asia
-  [110, -10, 155, -45], // Australia
-  [-55, 84, -20, 60],   // Greenland
-];
-
-const GRID_LATS = [-60, -30, 0, 30, 60];
-const GRID_LNGS = [-120, -60, 0, 60, 120];
-
 export default function WorldMap({ factories, winningFactoryId, targetCity }: WorldMapProps) {
-  const targetPt = proj(targetCity.lng, targetCity.lat);
-
   return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-full rounded-lg border border-border"
-      style={{ background: 'oklch(0.1 0.008 250)', maxHeight: 280 }}
+    <div
+      className="w-full rounded-lg border border-border overflow-hidden"
+      style={{ maxHeight: 300, background: '#0a1628' }}
       aria-label="Supply chain route map"
     >
-      {/* Grid lines */}
-      {GRID_LATS.map((lat) => {
-        const y = ((90 - lat) / 180) * H;
-        return (
-          <line
-            key={`lat-${lat}`}
-            x1={0}
-            y1={y}
-            x2={W}
-            y2={y}
-            stroke="oklch(0.22 0 0)"
-            strokeWidth={0.5}
-          />
-        );
-      })}
-      {GRID_LNGS.map((lng) => {
-        const x = ((lng + 180) / 360) * W;
-        return (
-          <line
-            key={`lng-${lng}`}
-            x1={x}
-            y1={0}
-            x2={x}
-            y2={H}
-            stroke="oklch(0.22 0 0)"
-            strokeWidth={0.5}
-          />
-        );
-      })}
-
-      {/* Land masses */}
-      {LAND_MASSES.map(([lng1, lat1, lng2, lat2], i) => {
-        const { x, y } = proj(lng1, lat1);
-        const { x: x2, y: y2 } = proj(lng2, lat2);
-        return (
-          <rect
-            key={i}
-            x={x}
-            y={y}
-            width={x2 - x}
-            height={y2 - y}
-            fill="oklch(0.22 0.008 250)"
-            rx={3}
-          />
-        );
-      })}
-
-      {/* Route lines */}
-      {factories.map((f) => {
-        const from = proj(f.lng, f.lat);
-        const isWinner = f.id === winningFactoryId;
-        return isWinner ? (
-          <line
-            key={`line-${f.id}`}
-            x1={from.x}
-            y1={from.y}
-            x2={targetPt.x}
-            y2={targetPt.y}
-            stroke="#34d399"
-            strokeWidth={2}
-            strokeDasharray="7 3"
-          >
-            <animate
-              attributeName="stroke-dashoffset"
-              from="0"
-              to="-40"
-              dur="1.1s"
-              repeatCount="indefinite"
-            />
-          </line>
-        ) : (
-          <line
-            key={`line-${f.id}`}
-            x1={from.x}
-            y1={from.y}
-            x2={targetPt.x}
-            y2={targetPt.y}
-            stroke="oklch(0.45 0 0)"
-            strokeWidth={1}
-            strokeDasharray="3 5"
-            opacity={0.45}
-          />
-        );
-      })}
-
-      {/* Factory markers */}
-      {factories.map((f) => {
-        const { x, y } = proj(f.lng, f.lat);
-        const isWinner = f.id === winningFactoryId;
-        return (
-          <g key={f.id}>
-            {isWinner && (
-              <circle cx={x} cy={y} r={10} fill="#34d399" opacity={0.12}>
-                <animate
-                  attributeName="r"
-                  values="8;15;8"
-                  dur="2s"
-                  repeatCount="indefinite"
-                />
-                <animate
-                  attributeName="opacity"
-                  values="0.15;0.04;0.15"
-                  dur="2s"
-                  repeatCount="indefinite"
-                />
-              </circle>
-            )}
-            <circle
-              cx={x}
-              cy={y}
-              r={5}
-              fill={isWinner ? '#34d399' : '#38bdf8'}
-              stroke={isWinner ? '#052e16' : '#0c4a6e'}
-              strokeWidth={1.5}
-            />
-            <text
-              x={x + 7}
-              y={y + 4}
-              fontSize={9}
-              fill={isWinner ? '#34d399' : '#94a3b8'}
-              fontFamily="ui-monospace, monospace"
-            >
-              {f.name}
-            </text>
-          </g>
-        );
-      })}
-
-      {/* Target city */}
-      <circle
-        cx={targetPt.x}
-        cy={targetPt.y}
-        r={6}
-        fill="#fbbf24"
-        stroke="#451a03"
-        strokeWidth={1.5}
-      />
-      <text
-        x={targetPt.x + 8}
-        y={targetPt.y + 4}
-        fontSize={9}
-        fill="#fbbf24"
-        fontFamily="ui-monospace, monospace"
+      <ComposableMap
+        projection="geoEquirectangular"
+        projectionConfig={{ scale: 153, center: [0, 10] }}
+        style={{ width: '100%', height: '100%', maxHeight: 300 }}
       >
-        {targetCity.name}
-      </text>
-    </svg>
+        {/* Ocean */}
+        <Sphere id="rsm-sphere" stroke="#1e3a5f" strokeWidth={0.5} fill="#0a1628" />
+
+        {/* Lat/lng grid */}
+        <Graticule stroke="#0f2942" strokeWidth={0.4} />
+
+        {/* Country fills */}
+        <Geographies geography={GEO_URL}>
+          {({ geographies }) =>
+            geographies.map((geo) => (
+              <Geography
+                key={geo.rsmKey}
+                geography={geo}
+                fill="#1a2e4a"
+                stroke="#2d4a6e"
+                strokeWidth={0.4}
+                style={{
+                  default: { outline: 'none' },
+                  hover:   { outline: 'none' },
+                  pressed: { outline: 'none' },
+                }}
+              />
+            ))
+          }
+        </Geographies>
+
+        {/* Route lines — non-winners first so winner renders on top */}
+        {factories
+          .filter((f) => f.id !== winningFactoryId)
+          .map((f) => (
+            <Line
+              key={`line-${f.id}`}
+              from={[f.lng, f.lat]}
+              to={[targetCity.lng, targetCity.lat]}
+              stroke="#334155"
+              strokeWidth={1}
+              strokeDasharray="4 5"
+              strokeLinecap="round"
+              opacity={0.5}
+            />
+          ))}
+
+        {/* Winning route — animated dashed */}
+        {factories
+          .filter((f) => f.id === winningFactoryId)
+          .map((f) => (
+            <Line
+              key={`line-${f.id}`}
+              from={[f.lng, f.lat]}
+              to={[targetCity.lng, targetCity.lat]}
+              stroke="#34d399"
+              strokeWidth={2}
+              strokeDasharray="8 4"
+              strokeLinecap="round"
+              className="route-winner"
+            />
+          ))}
+
+        {/* Factory markers */}
+        {factories.map((f) => {
+          const isWinner = f.id === winningFactoryId;
+          return (
+            <Marker key={f.id} coordinates={[f.lng, f.lat]}>
+              {isWinner && (
+                <circle r={10} fill="#34d399" opacity={0.15} className="factory-pulse" />
+              )}
+              <circle
+                r={5}
+                fill={isWinner ? '#34d399' : '#38bdf8'}
+                stroke={isWinner ? '#052e16' : '#0c4a6e'}
+                strokeWidth={1.5}
+              />
+              <text
+                x={8}
+                y={4}
+                fontSize={8}
+                fill={isWinner ? '#34d399' : '#94a3b8'}
+                style={{ fontFamily: 'ui-monospace, monospace', pointerEvents: 'none' }}
+              >
+                {f.name}
+              </text>
+            </Marker>
+          );
+        })}
+
+        {/* Target city */}
+        <Marker coordinates={[targetCity.lng, targetCity.lat]}>
+          <circle r={6} fill="#f59e0b" stroke="#451a03" strokeWidth={1.5} />
+          <text
+            x={9}
+            y={4}
+            fontSize={8}
+            fill="#fbbf24"
+            style={{ fontFamily: 'ui-monospace, monospace', pointerEvents: 'none' }}
+          >
+            {targetCity.name}
+          </text>
+        </Marker>
+      </ComposableMap>
+    </div>
   );
 }
