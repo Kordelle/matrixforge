@@ -148,8 +148,8 @@ export default function WorldMap({ apiKey, factories, winningFactoryId, targetCi
       >
         <p className="text-sm text-muted-foreground">
           Set{' '}
-          <code className="font-mono text-xs">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>
-          {' '}to enable map
+          <code className="font-mono text-xs">GOOGLE_MAPS_API_KEY</code>
+          {' '}in your environment to enable map
         </p>
       </div>
     );
