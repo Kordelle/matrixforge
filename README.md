@@ -84,10 +84,10 @@ matrixforge/
 
 ## Running with Docker (recommended)
 
-Copy `.env.local.example` to `.env.local` and add your OpenAI API key:
+Copy `.env.local.example` to `.env.local` and add your GitHub classic PAT:
 
 ```
-OPENAI_API_KEY=sk-...
+GITHUB_TOKEN=github_pat_...
 FASTAPI_URL=http://localhost:7431
 ```
 
@@ -121,12 +121,12 @@ Verify the compute service: `GET http://localhost:7431/health` → `{"status":"o
 
 | Variable | Where | Description |
 |---|---|---|
-| `OPENAI_API_KEY` | `.env.local` | OpenAI secret key — server-side only, never reaches the client bundle |
+| `GITHUB_TOKEN` | `.env.local` | GitHub classic PAT with `copilot` scope — server-side only, never reaches the client bundle |
 | `FASTAPI_URL` | `.env.local` / compose env | Base URL of the Python compute service (`http://localhost:7431` locally, `http://compute:7431` in Docker) |
 
 ## Notes
 
 - All data is intentionally synthetic and demo-safe.
-- `OPENAI_API_KEY` is never exposed to the browser — consumed only in `app/api/optimize/route.ts`.
+- `GITHUB_TOKEN` is never exposed to the browser — consumed only in `app/api/optimize/route.ts`.
 - The Python solver modules use plain imports; uvicorn must be started with `--app-dir` pointing to `python/` when run outside Docker.
 - Designed for internal review, roadmap alignment, and architecture validation.

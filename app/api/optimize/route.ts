@@ -8,15 +8,18 @@ import type { OptimizationResult, ParsedRequest } from '@/lib/types';
 // Prevent Next.js from statically rendering this route at build time
 export const dynamic = 'force-dynamic';
 
-// OpenAI client — server-side only, lazily initialized at request time
-// so next build never evaluates it without a key present.
+// GitHub Copilot chat completions client — server-side only, lazily
+// initialized at request time so next build never evaluates it without a token.
 let _openai: OpenAI | null = null;
 function getOpenAI(): OpenAI {
   if (!_openai) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY environment variable is not set');
+    if (!process.env.GITHUB_TOKEN) {
+      throw new Error('GITHUB_TOKEN environment variable is not set');
     }
-    _openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    _openai = new OpenAI({
+      baseURL: 'https://api.githubcopilot.com',
+      apiKey: process.env.GITHUB_TOKEN,
+    });
   }
   return _openai;
 }
