@@ -5,6 +5,7 @@ import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
 import type { Factory } from '@/app/data/syntheticCatalog';
 
 interface WorldMapProps {
+  apiKey: string;
   factories: Factory[];
   winningFactoryId: string;
   targetCity: { name: string; lat: number; lng: number };
@@ -82,7 +83,9 @@ function DotMarker({ position, label, fillColor, strokeColor, scale = 7 }: DotMa
 }
 
 // ── Inner content (must be a child of <Map>) ──────────────────────────────────
-function MapContent({ factories, winningFactoryId, targetCity }: WorldMapProps) {
+type MapContentProps = Omit<WorldMapProps, 'apiKey'>;
+
+function MapContent({ factories, winningFactoryId, targetCity }: MapContentProps) {
   return (
     <>
       {/* Non-winning routes first so winning route renders on top */}
@@ -135,9 +138,7 @@ function MapContent({ factories, winningFactoryId, targetCity }: WorldMapProps) 
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
-export default function WorldMap({ factories, winningFactoryId, targetCity }: WorldMapProps) {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-
+export default function WorldMap({ apiKey, factories, winningFactoryId, targetCity }: WorldMapProps) {
   if (!apiKey) {
     return (
       <div

@@ -64,7 +64,7 @@ const SLIDER_COLORS = ['text-emerald-400', 'text-amber-400', 'text-sky-400'] as 
 // Component
 // ---------------------------------------------------------------------------
 
-export default function DashboardGrid() {
+export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApiKey?: string }) {
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -248,6 +248,7 @@ export default function DashboardGrid() {
               <div className="flex flex-col gap-4">
                 <KpiCards result={result} />
                 <WorldMap
+                  apiKey={googleMapsApiKey}
                   factories={factories}
                   winningFactoryId={result.winningFactoryId}
                   targetCity={{
