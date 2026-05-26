@@ -17,7 +17,7 @@ function getOpenAI(): OpenAI {
       throw new Error('GITHUB_TOKEN environment variable is not set');
     }
     _openai = new OpenAI({
-      baseURL: 'https://api.githubcopilot.com',
+      baseURL: 'https://models.inference.ai.azure.com',
       apiKey: process.env.GITHUB_TOKEN,
     });
   }

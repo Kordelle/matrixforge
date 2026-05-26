@@ -121,7 +121,7 @@ Verify the compute service: `GET http://localhost:7431/health` → `{"status":"o
 
 | Variable | Where | Description |
 |---|---|---|
-| `GITHUB_TOKEN` | `.env.local` | GitHub classic PAT with `copilot` scope — server-side only, never reaches the client bundle |
+| `GITHUB_TOKEN` | `.env.local` | GitHub classic PAT with `models:read` scope — used against `https://models.inference.ai.azure.com` — server-side only, never reaches the client bundle |
 | `FASTAPI_URL` | `.env.local` / compose env | Base URL of the Python compute service (`http://localhost:7431` locally, `http://compute:7431` in Docker) |
 
 ## Notes
