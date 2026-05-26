@@ -25,7 +25,7 @@ export default function KpiCards({ result }: KpiCardsProps) {
             {formatCurrency(result.totalCost)}
           </div>
           <p className="text-xs text-muted-foreground mt-1 truncate">
-            {result.volume}× · {result.winningFactoryName}
+            {result.volume} units · {result.winningFactoryName.split(',')[0]}
           </p>
         </CardContent>
       </Card>
@@ -57,8 +57,8 @@ export default function KpiCards({ result }: KpiCardsProps) {
           >
             {formatPercent(result.carbonReductionPct)}
           </div>
-          <p className="text-xs text-muted-foreground mt-1 truncate">
-            vs worst · {result.winningSku}
+          <p className="text-xs text-muted-foreground mt-1">
+            vs highest-carbon option
           </p>
         </CardContent>
       </Card>
@@ -73,7 +73,9 @@ export default function KpiCards({ result }: KpiCardsProps) {
         </CardHeader>
         <CardContent className="px-4 pb-4">
           <div className="text-2xl font-bold text-sky-400 tabular-nums">{result.leadTimeDays}d</div>
-          <p className="text-xs text-muted-foreground mt-1">est. delivery window</p>
+          <p className="text-xs text-muted-foreground mt-1 truncate">
+            {result.winningFactoryName.split(',')[0]} → {result.targetLocation.split(',')[0]}
+          </p>
         </CardContent>
       </Card>
     </div>

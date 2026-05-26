@@ -31,9 +31,11 @@ export default function MetricsChart({ breakdown }: MetricsChartProps) {
     <Card className="bg-card border-border">
       <CardHeader className="pb-1 pt-4">
         <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-          Composite Score by Configuration
+          {breakdown.length} Configurations Ranked
         </CardTitle>
-        <p className="text-xs text-muted-foreground">Lower score → optimal · Winner highlighted</p>
+        <p className="text-xs text-muted-foreground">
+          Composite score = weighted cost + carbon + freight · lower is better · green bar = winner
+        </p>
       </CardHeader>
       <CardContent className="pb-4">
         <ResponsiveContainer width="100%" height={200}>

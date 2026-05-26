@@ -10,6 +10,7 @@ import InputPanel from './InputPanel';
 import KpiCards from './KpiCards';
 import MetricsChart from './MetricsChart';
 import WorldMap from './WorldMap';
+import RecommendationBanner from './RecommendationBanner';
 
 // ---------------------------------------------------------------------------
 // Weight slider helpers
@@ -148,7 +149,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">MatrixForge</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-            Multi-Variable Supply Chain Optimizer
+          Multi-Variable Supply Chain Optimizer
             {result && (
               <>
                 {' '}·{' '}
@@ -179,12 +180,12 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
           <Card className="bg-card border-border">
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Priority Weights
+                Optimization Weights
               </CardTitle>
               <p className="text-xs text-muted-foreground">
                 {parsedCacheRef.current
-                  ? 'Adjust to auto re-optimize (600ms debounce)'
-                  : 'Populated from LLM inference after first analysis'}
+                  ? 'Drag to live re-optimize · applied automatically'
+                  : 'Inferred from your request after first analysis · drag to adjust'}
               </p>
             </CardHeader>
             <CardContent className="px-5 pb-5 flex flex-col gap-4">
@@ -222,13 +223,32 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
           )}
 
           {!result && !isLoading && !error && (
-            <div className="flex flex-col items-center justify-center h-72 rounded-lg border border-dashed border-border text-center px-8">
-              <p className="text-muted-foreground text-sm max-w-xs">
-                Describe a supply chain request to run the optimizer.
-              </p>
-              <p className="text-muted-foreground/60 text-xs mt-2 italic">
-                &ldquo;Outfit a 3-floor office in Chicago. Prioritize low carbon.&rdquo;
-              </p>
+            <div className="rounded-lg border border-dashed border-border px-6 py-6 flex flex-col gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground">Run your first analysis</p>
+                <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed max-w-md">
+                  Describe a manufacturing project on the left. MatrixForge parses it with AI, then
+                  scores every component configuration across cost, carbon footprint, and delivery
+                  speed — recommending the optimal factory and SKU for your stated priorities.
+                </p>
+              </div>
+              <div className="flex flex-col gap-2">
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+                  Active manufacturing nodes
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {factories.map((f) => (
+                    <span
+                      key={f.id}
+                      className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs"
+                    >
+                      <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0" />
+                      <span className="font-medium text-foreground">{f.name}</span>
+                      <span className="text-muted-foreground">· {f.specialty}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           )}
 
@@ -246,6 +266,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
           {result && (
             <div className={isLoading ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
               <div className="flex flex-col gap-4">
+                <RecommendationBanner result={result} />
                 <KpiCards result={result} />
                 <WorldMap
                   apiKey={googleMapsApiKey}
