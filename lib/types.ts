@@ -14,6 +14,7 @@ export interface ParsedRequest {
   volume: number;
   weights: OptimizationWeights;
   mode: SolverMode;
+  semanticQuery?: string | null;
 }
 
 export interface FactoryBreakdown {
@@ -46,4 +47,6 @@ export interface OptimizationResult {
   winningSku: string;
   breakdown: FactoryBreakdown[];
   solverDurationMs: number;
+  searchedSkuCount: number;
+  matchedSkuCount: number;
 }

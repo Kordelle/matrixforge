@@ -39,6 +39,10 @@ __pycache__/
 *.pyc
 *.pyo
 
+# Generated catalog data (baked into Docker image at build time)
+python/data/catalog_seed.ndjson
+python/data/chroma_db/
+
 # vercel
 .vercel
 

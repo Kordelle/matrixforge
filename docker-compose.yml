@@ -5,6 +5,10 @@ services:
       dockerfile: Dockerfile
     ports:
       - "7431:7431"
+    env_file:
+      - .env.local
+    volumes:
+      - chroma_data:/app/data/chroma_db
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:7431/health')"]
       interval: 10s
@@ -25,3 +29,6 @@ services:
     depends_on:
       compute:
         condition: service_healthy
+
+volumes:
+  chroma_data:

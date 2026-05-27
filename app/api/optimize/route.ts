@@ -48,6 +48,7 @@ const DirectInputSchema = z.object({
   volume: z.number().positive(),
   weights: WeightsSchema,
   mode: z.enum(['sequential', 'parallel']).default('parallel'),
+  semanticQuery: z.string().nullable().optional(),
 });
 
 const InputSchema = z.union([AnalyzeInputSchema, DirectInputSchema]);
@@ -56,6 +57,7 @@ const LLMOutputSchema = z.object({
   targetLocation: z.string().min(1),
   volume: z.number().positive(),
   weights: WeightsSchema,
+  semanticQuery: z.string().nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -72,7 +74,8 @@ Return ONLY valid JSON with these exact fields:
     "carbonWeight": <0.0-1.0>,
     "costWeight": <0.0-1.0>,
     "speedWeight": <0.0-1.0>
-  }
+  },
+  "semanticQuery": "<short product keyword phrase or null>"
 }
 
 Rules:
@@ -81,6 +84,7 @@ Rules:
 - Default equal weights (0.33, 0.33, 0.34) if no priorities stated
 - targetLocation must be one of: "Chicago, IL" | "New York, NY" | "Los Angeles, CA" | "Toronto, Canada" | "Mexico City, Mexico" | "São Paulo, Brazil" | "London, UK" | "Frankfurt, Germany" | "Cairo, Egypt" | "Dubai, UAE" | "Mumbai, India" | "Singapore" | "Tokyo, Japan" | "Seoul, South Korea" | "Sydney, Australia" — pick the geographically closest match
 - Default volume to 100 if not specified
+- semanticQuery: extract a concise product keyword phrase for semantic catalog search (e.g. "acoustic panel healthcare low VOC", "ergonomic task chair high back", "laminate worksurface standing height"). Set to null if the request is generic or no specific product type is mentioned.
 - Return ONLY the JSON object, no prose`;
 
 // ---------------------------------------------------------------------------
@@ -163,16 +167,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { targetLocation, volume, weights } = llmResult.data;
+    const { targetLocation, volume, weights, semanticQuery } = llmResult.data;
     const city = resolveCity(targetLocation) ?? clientCities[0];
 
-    solverPayload = { targetLocation, targetLat: city.lat, targetLng: city.lng, volume, weights, mode };
+    solverPayload = { targetLocation, targetLat: city.lat, targetLng: city.lng, volume, weights, mode, semanticQuery: semanticQuery ?? null };
   } else {
     // -----------------------------------------------------------------------
     // Direct path: pre-parsed data provided — skip LLM (slider re-optimization)
     // -----------------------------------------------------------------------
-    const { targetLocation, targetLat, targetLng, volume, weights, mode } = inputResult.data;
-    solverPayload = { targetLocation, targetLat, targetLng, volume, weights, mode };
+    const { targetLocation, targetLat, targetLng, volume, weights, mode, semanticQuery } = inputResult.data;
+    solverPayload = { targetLocation, targetLat, targetLng, volume, weights, mode, semanticQuery: semanticQuery ?? null };
   }
 
   // 2. POST to FastAPI compute engine

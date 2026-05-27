@@ -20,7 +20,7 @@ import time
 
 import numpy as np
 
-from data import CATALOG_ITEMS, FACTORIES, FACTORY_INDEX
+from data import CatalogItem, FACTORIES, FACTORY_INDEX
 from models import (
     FactoryBreakdown,
     OptimizationResult,
@@ -102,12 +102,15 @@ def _normalize_arr(arr: np.ndarray) -> np.ndarray:
 # Sequential solver — rigorous, correctness-first
 # ---------------------------------------------------------------------------
 
-def run_sequential_solver(request: OptimizeRequest) -> OptimizationResult:
+def run_sequential_solver(
+    request: OptimizeRequest,
+    items: list[CatalogItem],
+) -> OptimizationResult:
     """Iterative baseline: score each catalog item explicitly for full traceability."""
     start = time.perf_counter()
 
     raw: list[dict] = []
-    for item in CATALOG_ITEMS:
+    for item in items:
         factory = FACTORY_INDEX[item["origin"]]
         dist = haversine_distance(factory["lat"], factory["lng"], request.target_lat, request.target_lng)
         freight = freight_cost_scalar(dist)
@@ -186,17 +189,20 @@ def run_sequential_solver(request: OptimizeRequest) -> OptimizationResult:
 # Parallel solver — NumPy vectorized
 # ---------------------------------------------------------------------------
 
-def run_parallel_solver(request: OptimizeRequest) -> OptimizationResult:
+def run_parallel_solver(
+    request: OptimizeRequest,
+    items: list[CatalogItem],
+) -> OptimizationResult:
     """Vectorized path: build per-item arrays and score the entire catalog in one pass.
 
     Each catalog item is associated with its origin factory. All Haversine
     distances, freight costs, lead times, and composite scores are computed
-    simultaneously via NumPy broadcasting — designed to scale to 10k+ SKUs
+    simultaneously via NumPy broadcasting — designed to scale to 24k+ SKUs
     without re-architecture when the catalog grows.
     """
     start = time.perf_counter()
 
-    n = len(CATALOG_ITEMS)
+    n = len(items)
 
     # Resolve per-item origin factory properties into parallel arrays
     origin_lats = np.empty(n)
@@ -205,7 +211,7 @@ def run_parallel_solver(request: OptimizeRequest) -> OptimizationResult:
     item_costs = np.empty(n)
     item_carbons = np.empty(n, dtype=float)
 
-    for i, item in enumerate(CATALOG_ITEMS):
+    for i, item in enumerate(items):
         factory = FACTORY_INDEX[item["origin"]]
         origin_lats[i] = factory["lat"]
         origin_lngs[i] = factory["lng"]
@@ -230,7 +236,7 @@ def run_parallel_solver(request: OptimizeRequest) -> OptimizationResult:
     best_idx = int(np.argmin(composite))
 
     breakdown: list[FactoryBreakdown] = []
-    for i, item in enumerate(CATALOG_ITEMS):
+    for i, item in enumerate(items):
         factory = FACTORY_INDEX[item["origin"]]
         breakdown.append(
             FactoryBreakdown(
@@ -252,7 +258,7 @@ def run_parallel_solver(request: OptimizeRequest) -> OptimizationResult:
     winner = breakdown[0]
 
     max_carbon = float(item_carbons.max())
-    carbon_reduction = (1 - CATALOG_ITEMS[best_idx]["carbon_score"] / max_carbon) * 100 if max_carbon > 0 else 0.0
+    carbon_reduction = (1 - items[best_idx]["carbon_score"] / max_carbon) * 100 if max_carbon > 0 else 0.0
 
     return OptimizationResult(
         target_location=request.target_location,
@@ -264,9 +270,9 @@ def run_parallel_solver(request: OptimizeRequest) -> OptimizationResult:
         total_cost=round(float(total_costs[best_idx]) * request.volume, 2),
         carbon_reduction_pct=round(carbon_reduction, 1),
         lead_time_days=round(float(lead_times[best_idx]), 1),
-        winning_factory_id=FACTORY_INDEX[CATALOG_ITEMS[best_idx]["origin"]]["id"],
-        winning_factory_name=FACTORY_INDEX[CATALOG_ITEMS[best_idx]["origin"]]["name"],
-        winning_sku=CATALOG_ITEMS[best_idx]["sku"],
+        winning_factory_id=FACTORY_INDEX[items[best_idx]["origin"]]["id"],
+        winning_factory_name=FACTORY_INDEX[items[best_idx]["origin"]]["name"],
+        winning_sku=items[best_idx]["sku"],
         breakdown=breakdown,
         solver_duration_ms=round((time.perf_counter() - start) * 1000, 2),
     )

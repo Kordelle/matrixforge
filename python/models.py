@@ -37,6 +37,7 @@ class OptimizeRequest(CamelModel):
     volume: int = Field(gt=0)
     weights: OptimizationWeights = OptimizationWeights()
     mode: SolverMode = SolverMode.parallel
+    semantic_query: str | None = None  # camelCase alias: semanticQuery
 
 
 class FactoryBreakdown(CamelModel):
@@ -68,3 +69,5 @@ class OptimizationResult(CamelModel):
     winning_sku: str
     breakdown: list[FactoryBreakdown]
     solver_duration_ms: float
+    searched_sku_count: int = 0  # camelCase alias: searchedSkuCount
+    matched_sku_count: int = 0   # camelCase alias: matchedSkuCount

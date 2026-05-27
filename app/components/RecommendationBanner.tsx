@@ -47,7 +47,11 @@ export default function RecommendationBanner({ result }: RecommendationBannerPro
             <p className="text-xs text-muted-foreground mt-1.5">
               Selected for{' '}
               <span className="text-foreground font-medium">{priority}</span>
-              {' '}across {result.breakdown.length} evaluated configurations
+              {' '}· searched{' '}
+              <span className="text-foreground font-medium">
+                {(result.searchedSkuCount ?? result.breakdown.length).toLocaleString()}
+              </span>{' '}SKUs · resolved from{' '}
+              <span className="text-foreground font-medium">{result.breakdown.length}</span>{' '}best matches
             </p>
           </div>
           <div className="shrink-0 text-right flex flex-col items-end gap-1">
