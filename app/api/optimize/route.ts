@@ -3,7 +3,7 @@ import OpenAI from 'openai';
 import { z } from 'zod';
 
 import { clientCities } from '@/app/data/syntheticCatalog';
-import type { OptimizationResult, ParsedRequest } from '@/lib/types';
+import type { ParsedRequest, ProjectResult } from '@/lib/types';
 
 // Prevent Next.js from statically rendering this route at build time
 export const dynamic = 'force-dynamic';
@@ -36,6 +36,13 @@ const WeightsSchema = z.object({
   speedWeight: z.number().min(0).max(1),
 });
 
+const SpaceMixSchema = z.object({
+  openOfficePct: z.number().min(0).max(1),
+  enclosedOfficePct: z.number().min(0).max(1),
+  conferencePct: z.number().min(0).max(1),
+  loungePct: z.number().min(0).max(1),
+});
+
 const AnalyzeInputSchema = z.object({
   query: z.string().min(1, 'Query is required'),
   mode: z.enum(['sequential', 'parallel']).default('parallel'),
@@ -45,46 +52,64 @@ const DirectInputSchema = z.object({
   targetLocation: z.string().min(1),
   targetLat: z.number(),
   targetLng: z.number(),
-  volume: z.number().positive(),
+  floors: z.number().int().positive().default(1),
+  sqFtPerFloor: z.number().positive().default(10000),
+  spaceMix: SpaceMixSchema,
   weights: WeightsSchema,
   mode: z.enum(['sequential', 'parallel']).default('parallel'),
-  semanticQuery: z.string().nullable().optional(),
 });
 
 const InputSchema = z.union([AnalyzeInputSchema, DirectInputSchema]);
 
 const LLMOutputSchema = z.object({
   targetLocation: z.string().min(1),
-  volume: z.number().positive(),
+  floors: z.number().int().positive().default(1),
+  sqFtPerFloor: z.number().positive().default(10000),
+  spaceMix: z
+    .object({
+      openOfficePct: z.number().min(0).max(1).default(0.65),
+      enclosedOfficePct: z.number().min(0).max(1).default(0.10),
+      conferencePct: z.number().min(0).max(1).default(0.15),
+      loungePct: z.number().min(0).max(1).default(0.10),
+    })
+    .default({ openOfficePct: 0.65, enclosedOfficePct: 0.10, conferencePct: 0.15, loungePct: 0.10 }),
   weights: WeightsSchema,
-  semanticQuery: z.string().nullable().optional(),
 });
 
 // ---------------------------------------------------------------------------
 // LLM system prompt
 // ---------------------------------------------------------------------------
 
-const SYSTEM_PROMPT = `You are a B2B supply chain planning assistant. Extract structured parameters from the user's manufacturing request.
+const SYSTEM_PROMPT = `You are a B2B workspace planning assistant. Extract structured space program parameters from the user's project description.
 
 Return ONLY valid JSON with these exact fields:
 {
   "targetLocation": "city, state/country",
-  "volume": <number of units>,
+  "floors": <number of floors, integer>,
+  "sqFtPerFloor": <usable square footage per floor, number>,
+  "spaceMix": {
+    "openOfficePct": <0.0-1.0>,
+    "enclosedOfficePct": <0.0-1.0>,
+    "conferencePct": <0.0-1.0>,
+    "loungePct": <0.0-1.0>
+  },
   "weights": {
     "carbonWeight": <0.0-1.0>,
     "costWeight": <0.0-1.0>,
     "speedWeight": <0.0-1.0>
-  },
-  "semanticQuery": "<short product keyword phrase or null>"
+  }
 }
 
 Rules:
 - weights must sum to exactly 1.0
-- Infer weights from stated priorities: "low carbon" = high carbonWeight, "fast delivery" = high speedWeight, "low cost" = high costWeight
+- spaceMix values must sum to exactly 1.0
+- Infer weights from stated priorities: "low carbon" / "eco" / "green" = high carbonWeight; "fast" / "quick delivery" = high speedWeight; "budget" / "low cost" = high costWeight
 - Default equal weights (0.33, 0.33, 0.34) if no priorities stated
 - targetLocation must be one of: "Chicago, IL" | "New York, NY" | "Los Angeles, CA" | "Toronto, Canada" | "Mexico City, Mexico" | "São Paulo, Brazil" | "London, UK" | "Frankfurt, Germany" | "Cairo, Egypt" | "Dubai, UAE" | "Mumbai, India" | "Singapore" | "Tokyo, Japan" | "Seoul, South Korea" | "Sydney, Australia" — pick the geographically closest match
-- Default volume to 100 if not specified
-- semanticQuery: extract a concise product keyword phrase for semantic catalog search (e.g. "acoustic panel healthcare low VOC", "ergonomic task chair high back", "laminate worksurface standing height"). Set to null if the request is generic or no specific product type is mentioned.
+- floors: extract from "3-floor", "three story", "2 levels" etc. Default 1 if not mentioned.
+- sqFtPerFloor: extract explicit sq ft or sq m (convert to sq ft: 1 m² = 10.76 sq ft). If headcount given but no sq ft, estimate: sqFtPerFloor = round(headcount × 100 / floors). Default 10000 if nothing mentioned.
+- spaceMix defaults: open 0.65, enclosed 0.10, conference 0.15, lounge 0.10
+- "mostly open plan" → openOfficePct 0.75-0.80; "executive floor" → enclosedOfficePct 0.25-0.35; "collaboration-heavy" → loungePct 0.20+
 - Return ONLY the JSON object, no prose`;
 
 // ---------------------------------------------------------------------------
@@ -127,7 +152,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if ('query' in inputResult.data) {
     // -----------------------------------------------------------------------
-    // LLM path: parse natural language → extract location, volume, weights
+    // LLM path: parse natural language → extract space program + location + weights
     // -----------------------------------------------------------------------
     const { query, mode } = inputResult.data;
 
@@ -167,22 +192,32 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { targetLocation, volume, weights, semanticQuery } = llmResult.data;
+    const { targetLocation, floors, sqFtPerFloor, spaceMix, weights } = llmResult.data;
     const city = resolveCity(targetLocation) ?? clientCities[0];
 
-    solverPayload = { targetLocation, targetLat: city.lat, targetLng: city.lng, volume, weights, mode, semanticQuery: semanticQuery ?? null };
+    solverPayload = {
+      targetLocation,
+      targetLat: city.lat,
+      targetLng: city.lng,
+      floors,
+      sqFtPerFloor,
+      spaceMix,
+      weights,
+      mode,
+    };
   } else {
     // -----------------------------------------------------------------------
     // Direct path: pre-parsed data provided — skip LLM (slider re-optimization)
     // -----------------------------------------------------------------------
-    const { targetLocation, targetLat, targetLng, volume, weights, mode, semanticQuery } = inputResult.data;
-    solverPayload = { targetLocation, targetLat, targetLng, volume, weights, mode, semanticQuery: semanticQuery ?? null };
+    const { targetLocation, targetLat, targetLng, floors, sqFtPerFloor, spaceMix, weights, mode } =
+      inputResult.data;
+    solverPayload = { targetLocation, targetLat, targetLng, floors, sqFtPerFloor, spaceMix, weights, mode };
   }
 
   // 2. POST to FastAPI compute engine
   const fastapiUrl = process.env.FASTAPI_URL ?? 'http://localhost:7431';
 
-  let result: OptimizationResult;
+  let result: ProjectResult;
   try {
     const res = await fetch(`${fastapiUrl}/optimize`, {
       method: 'POST',
@@ -196,7 +231,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Compute engine error', detail }, { status: 502 });
     }
 
-    result = (await res.json()) as OptimizationResult;
+    result = (await res.json()) as ProjectResult;
   } catch (err) {
     console.error('[optimize] FastAPI unreachable:', err);
     return NextResponse.json(

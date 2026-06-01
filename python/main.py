@@ -23,8 +23,9 @@ from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from models import OptimizeRequest, OptimizationResult, SolverMode
-from solver import run_parallel_solver, run_sequential_solver
+from models import OptimizeRequest, ProjectResult
+from solver import run_project_solver
+from space_program import CATEGORY_META, calculate_space_program
 
 logger = logging.getLogger(__name__)
 
@@ -177,33 +178,47 @@ async def search(body: dict, request: Request) -> JSONResponse:
     return JSONResponse(content={"results": results, "count": len(results)})
 
 
-@app.post("/optimize", response_model=OptimizationResult)
+@app.post("/optimize", response_model=ProjectResult)
 async def optimize(optimize_request: OptimizeRequest, request: Request) -> JSONResponse:
-    """Run the selected solver and return a fully scored OptimizationResult.
+    """Build a full project BOM and return a ProjectResult.
 
-    Sequential mode — rigorous iterative baseline, correctness-first.
-    Parallel mode   — NumPy vectorized, designed for massive catalog scale.
-
-    If semanticQuery is provided and ChromaDB is indexed, restricts the
-    candidate set to the top-200 semantically relevant SKUs first.
+    Flow:
+      1. Calculate space program (floors × sq ft × mix → {category: quantity})
+      2. For each BOM category, run a category-specific semantic search
+      3. Score all candidates with vectorized composite algorithm
+      4. Assemble BomLine winners into a ProjectResult
     """
     try:
-        items, total_searched = _get_items(request, optimize_request.semantic_query)
+        sp = calculate_space_program(
+            floors=optimize_request.floors,
+            sq_ft_per_floor=optimize_request.sq_ft_per_floor,
+            open_office_pct=optimize_request.space_mix.open_office_pct,
+            enclosed_office_pct=optimize_request.space_mix.enclosed_office_pct,
+            conference_pct=optimize_request.space_mix.conference_pct,
+            lounge_pct=optimize_request.space_mix.lounge_pct,
+        )
 
-        if not items:
+        if not sp.bom_quantities:
+            raise HTTPException(status_code=422, detail="Space program produced empty BOM.")
+
+        # Resolve items per category via category-specific semantic search
+        category_items: dict[str, list[dict]] = {}
+        total_searched = 0
+        for cat_key in sp.bom_quantities:
+            cat_meta = CATEGORY_META.get(cat_key, {})
+            semantic_q: str | None = cat_meta.get("semantic_query")
+            items, searched = _get_items(request, semantic_q)
+            category_items[cat_key] = items
+            total_searched = max(total_searched, searched)
+
+        if not any(category_items.values()):
             raise HTTPException(
                 status_code=503,
                 detail="Catalog not yet loaded. Retry in a few seconds.",
             )
 
-        solver = (
-            run_sequential_solver
-            if optimize_request.mode == SolverMode.sequential
-            else run_parallel_solver
-        )
-        result: OptimizationResult = solver(optimize_request, items)
+        result = run_project_solver(optimize_request, category_items, sp)
         result.searched_sku_count = total_searched
-        result.matched_sku_count = len(items)
 
         return JSONResponse(content=result.model_dump(by_alias=True))
     except HTTPException:

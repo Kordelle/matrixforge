@@ -1,31 +1,34 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency, formatPercent, cn } from '@/lib/utils';
-import type { OptimizationResult } from '@/lib/types';
-import { DollarSign, Leaf, Clock } from 'lucide-react';
+import type { ProjectResult } from '@/lib/types';
+import { DollarSign, Leaf, Clock, Factory } from 'lucide-react';
 
 interface KpiCardsProps {
-  result: OptimizationResult;
+  result: ProjectResult;
 }
 
 export default function KpiCards({ result }: KpiCardsProps) {
   const isEcoMode = result.weights.carbonWeight >= 0.5;
+  const leadWeeks = Math.ceil(result.maxLeadTimeDays / 7);
+  const carbonSavedKg = Math.round(result.baselineCarbonKg - result.totalCarbonKg);
 
   return (
-    <div className="grid grid-cols-3 gap-3">
-      {/* Total Cost */}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Total Project Value */}
       <Card className="bg-card border-border">
         <CardHeader className="pb-1 pt-4 px-4">
           <CardTitle className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
             <DollarSign className="h-3.5 w-3.5 text-amber-400" />
-            Total Cost
+            Project Value
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
           <div className="text-2xl font-bold text-amber-400 tabular-nums">
-            {formatCurrency(result.totalCost)}
+            {formatCurrency(result.totalProjectCost)}
           </div>
           <p className="text-xs text-muted-foreground mt-1 truncate">
-            {result.volume} units · {result.winningFactoryName.split(',')[0]}
+            {result.floors} floor{result.floors !== 1 ? 's' : ''} ·{' '}
+            {(result.sqFtTotal / 1000).toFixed(0)}k sq ft
           </p>
         </CardContent>
       </Card>
@@ -45,7 +48,7 @@ export default function KpiCards({ result }: KpiCardsProps) {
                 isEcoMode ? 'text-emerald-400' : 'text-muted-foreground',
               )}
             />
-            Carbon Reduction
+            Carbon Saved
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
@@ -58,7 +61,7 @@ export default function KpiCards({ result }: KpiCardsProps) {
             {formatPercent(result.carbonReductionPct)}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
-            vs highest-carbon option
+            {carbonSavedKg.toLocaleString()} kg CO₂e vs all-steel
           </p>
         </CardContent>
       </Card>
@@ -72,9 +75,29 @@ export default function KpiCards({ result }: KpiCardsProps) {
           </CardTitle>
         </CardHeader>
         <CardContent className="px-4 pb-4">
-          <div className="text-2xl font-bold text-sky-400 tabular-nums">{result.leadTimeDays}d</div>
+          <div className="text-2xl font-bold text-sky-400 tabular-nums">
+            {leadWeeks}w
+          </div>
           <p className="text-xs text-muted-foreground mt-1 truncate">
-            {result.winningFactoryName.split(',')[0]} → {result.targetLocation.split(',')[0]}
+            {result.maxLeadTimeDays}d max · {result.targetLocation.split(',')[0]}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* Active Factories */}
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-1 pt-4 px-4">
+          <CardTitle className="flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+            <Factory className="h-3.5 w-3.5 text-violet-400" />
+            Supply Nodes
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="px-4 pb-4">
+          <div className="text-2xl font-bold text-violet-400 tabular-nums">
+            {result.activeFactoryCount}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1 truncate">
+            {result.activeFactories.map((f) => f.name.split(',')[0]).join(' · ')}
           </p>
         </CardContent>
       </Card>

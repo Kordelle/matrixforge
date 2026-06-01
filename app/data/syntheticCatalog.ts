@@ -1,9 +1,9 @@
 /**
- * Canonical synthetic seed data — factories and cities used by the frontend.
+ * Canonical synthetic seed data ï¿½ factories and cities used by the frontend.
  *
  * The full SKU catalog (24,904 items) now lives in python/data/catalog_seed.ndjson
  * and is indexed into ChromaDB at container startup. The TypeScript layer no
- * longer needs a static catalogItems array — the optimizer receives SKU data
+ * longer needs a static catalogItems array ï¿½ the optimizer receives SKU data
  * from the Python compute engine after semantic pre-filtering.
  */
 
@@ -42,7 +42,7 @@ export const clientCities: ClientCity[] = [
   { name: 'Los Angeles, CA',     lat:  34.0522, lng: -118.2437 },
   { name: 'Toronto, Canada',     lat:  43.6510, lng:  -79.3470 },
   { name: 'Mexico City, Mexico', lat:  19.4326, lng:  -99.1332 },
-  { name: 'São Paulo, Brazil',   lat: -23.5505, lng:  -46.6333 },
+  { name: 'Sï¿½o Paulo, Brazil',   lat: -23.5505, lng:  -46.6333 },
   { name: 'London, UK',          lat:  51.5074, lng:   -0.1278 },
   { name: 'Frankfurt, Germany',  lat:  50.1109, lng:    8.6821 },
   { name: 'Cairo, Egypt',        lat:  30.0444, lng:   31.2357 },

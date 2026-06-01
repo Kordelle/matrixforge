@@ -6,46 +6,67 @@ export interface OptimizationWeights {
   speedWeight: number;
 }
 
-/** Shape of the parsed LLM output, extended with resolved coordinates and solver mode. */
+export interface SpaceMix {
+  openOfficePct: number;
+  enclosedOfficePct: number;
+  conferencePct: number;
+  loungePct: number;
+}
+
+/** Shape sent to FastAPI POST /optimize */
 export interface ParsedRequest {
   targetLocation: string;
   targetLat: number;
   targetLng: number;
-  volume: number;
+  floors: number;
+  sqFtPerFloor: number;
+  spaceMix: SpaceMix;
   weights: OptimizationWeights;
   mode: SolverMode;
-  semanticQuery?: string | null;
 }
 
-export interface FactoryBreakdown {
-  factoryId: string;
-  factoryName: string;
+export interface ActiveFactory {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+}
+
+export interface BomLine {
+  category: string;
+  categoryLabel: string;
   sku: string;
   itemName: string;
-  freightDistanceKm: number;
+  factoryId: string;
+  factoryName: string;
+  factoryLat: number;
+  factoryLng: number;
+  quantity: number;
+  unitCost: number;
   freightCostPerUnit: number;
-  itemCost: number;
-  totalCostPerUnit: number;
+  totalCost: number;
   carbonScore: number;
+  totalCarbon: number;
   leadTimeDays: number;
   compositeScore: number;
 }
 
-/** Camelcase mirror of the Pydantic OptimizationResult model (aliased by_alias=True). */
-export interface OptimizationResult {
+export interface ProjectResult {
   targetLocation: string;
   targetLat: number;
   targetLng: number;
-  volume: number;
+  floors: number;
+  sqFtTotal: number;
   weights: OptimizationWeights;
   mode: SolverMode;
-  totalCost: number;
+  bom: BomLine[];
+  totalProjectCost: number;
+  totalCarbonKg: number;
+  baselineCarbonKg: number;
   carbonReductionPct: number;
-  leadTimeDays: number;
-  winningFactoryId: string;
-  winningFactoryName: string;
-  winningSku: string;
-  breakdown: FactoryBreakdown[];
+  maxLeadTimeDays: number;
+  activeFactoryCount: number;
+  activeFactories: ActiveFactory[];
   solverDurationMs: number;
   searchedSkuCount: number;
   matchedSkuCount: number;

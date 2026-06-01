@@ -189,6 +189,7 @@ def run_sequential_solver(
 # Parallel solver — NumPy vectorized
 # ---------------------------------------------------------------------------
 
+
 def run_parallel_solver(
     request: OptimizeRequest,
     items: list[CatalogItem],
@@ -275,4 +276,162 @@ def run_parallel_solver(
         winning_sku=items[best_idx]["sku"],
         breakdown=breakdown,
         solver_duration_ms=round((time.perf_counter() - start) * 1000, 2),
+    )
+
+
+# ---------------------------------------------------------------------------
+# BOM project solver — per-category vectorized solve
+# ---------------------------------------------------------------------------
+
+def _solve_category(
+    category_key: str,
+    category_label: str,
+    quantity: int,
+    items: list[CatalogItem],
+    request: OptimizeRequest,
+    volume_proxy: int,
+) -> "BomLine | None":
+    """Score all items for one BOM category and return the winning BomLine."""
+    from models import BomLine  # local import avoids circular dependency at module load
+
+    if not items:
+        return None
+
+    n = len(items)
+    origin_lats = np.empty(n)
+    origin_lngs = np.empty(n)
+    origin_caps = np.empty(n, dtype=float)
+    item_costs = np.empty(n)
+    item_carbons = np.empty(n, dtype=float)
+
+    for i, item in enumerate(items):
+        factory = FACTORY_INDEX[item["origin"]]
+        origin_lats[i] = factory["lat"]
+        origin_lngs[i] = factory["lng"]
+        origin_caps[i] = factory["capacity"]
+        item_costs[i] = item["cost"]
+        item_carbons[i] = item["carbon_score"]
+
+    distances = _haversine_vectorized(origin_lats, origin_lngs, request.target_lat, request.target_lng)
+    freight_costs = _freight_cost_arr(distances)
+    lead_times = (100 - origin_caps) / 10.0 + 3.0 + (volume_proxy / 100.0 * 0.5)
+    total_costs = item_costs + freight_costs
+
+    norm_cost = _normalize_arr(total_costs)
+    norm_carbon = _normalize_arr(item_carbons)
+    norm_speed = _normalize_arr(lead_times)
+
+    w = request.weights
+    composite = (
+        w.carbon_weight * norm_carbon
+        + w.cost_weight * norm_cost
+        + w.speed_weight * norm_speed
+    )
+
+    best_idx = int(np.argmin(composite))
+    winner = items[best_idx]
+    factory = FACTORY_INDEX[winner["origin"]]
+
+    unit_cost = float(winner["cost"])
+    freight = round(float(freight_costs[best_idx]), 2)
+
+    return BomLine(
+        category=category_key,
+        category_label=category_label,
+        sku=winner["sku"],
+        item_name=winner["name"],
+        factory_id=factory["id"],
+        factory_name=factory["name"],
+        factory_lat=factory["lat"],
+        factory_lng=factory["lng"],
+        quantity=quantity,
+        unit_cost=unit_cost,
+        freight_cost_per_unit=freight,
+        total_cost=round((unit_cost + freight) * quantity, 2),
+        carbon_score=int(winner["carbon_score"]),
+        total_carbon=round(float(winner["carbon_score"]) * quantity, 1),
+        lead_time_days=round(float(lead_times[best_idx]), 1),
+        composite_score=round(float(composite[best_idx]), 4),
+    )
+
+
+def run_project_solver(
+    request: OptimizeRequest,
+    category_items: dict[str, list[CatalogItem]],
+    space_program: "SpaceProgramResult",
+) -> "ProjectResult":
+    """Orchestrate per-category BOM solve and assemble a ProjectResult.
+
+    For each category in the space program BOM, scores all semantically
+    retrieved candidates with the same vectorized composite algorithm used
+    by run_parallel_solver, then picks the category winner.
+    """
+    from models import ActiveFactory, ProjectResult  # local imports avoid circular dep
+    from space_program import SpaceProgramResult  # type check only, already imported by caller
+
+    start = time.perf_counter()
+
+    bom: list = []
+    total_matched = 0
+
+    for cat_key, quantity in space_program.bom_quantities.items():
+        items = category_items.get(cat_key, [])
+        if not items:
+            continue
+        from space_program import CATEGORY_META
+        label = CATEGORY_META.get(cat_key, {}).get("label", cat_key)
+        line = _solve_category(cat_key, label, quantity, items, request, space_program.open_workstations)
+        if line is not None:
+            bom.append(line)
+        total_matched += len(items)
+
+    total_cost = sum(line.total_cost for line in bom)
+    total_carbon = sum(line.total_carbon for line in bom)
+
+    # Baseline: worst-case carbon (highest per-category carbon score × quantity)
+    baseline_carbon = sum(
+        max((item["carbon_score"] for item in category_items.get(line.category, [])),
+            default=line.carbon_score) * line.quantity
+        for line in bom
+    )
+    carbon_reduction = (
+        (1.0 - total_carbon / baseline_carbon) * 100.0 if baseline_carbon > 0 else 0.0
+    )
+
+    max_lead = max((line.lead_time_days for line in bom), default=0.0)
+
+    # Deduplicate active factories (preserving BOM order)
+    seen: set[str] = set()
+    active_factories: list[ActiveFactory] = []
+    for line in bom:
+        if line.factory_id not in seen:
+            seen.add(line.factory_id)
+            active_factories.append(
+                ActiveFactory(
+                    id=line.factory_id,
+                    name=line.factory_name,
+                    lat=line.factory_lat,
+                    lng=line.factory_lng,
+                )
+            )
+
+    return ProjectResult(
+        target_location=request.target_location,
+        target_lat=request.target_lat,
+        target_lng=request.target_lng,
+        floors=request.floors,
+        sq_ft_total=space_program.total_sqft,
+        weights=request.weights,
+        mode=request.mode,
+        bom=bom,
+        total_project_cost=round(total_cost, 2),
+        total_carbon_kg=round(total_carbon, 1),
+        baseline_carbon_kg=round(baseline_carbon, 1),
+        carbon_reduction_pct=round(carbon_reduction, 1),
+        max_lead_time_days=round(max_lead, 1),
+        active_factory_count=len(active_factories),
+        active_factories=active_factories,
+        solver_duration_ms=round((time.perf_counter() - start) * 1000, 2),
+        searched_sku_count=0,
+        matched_sku_count=total_matched,
     )

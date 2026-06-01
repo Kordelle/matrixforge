@@ -4,13 +4,13 @@ import { useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import type { OptimizationResult, OptimizationWeights, SolverMode } from '@/lib/types';
+import type { OptimizationWeights, ProjectResult, SpaceMix, SolverMode } from '@/lib/types';
 import { factories } from '@/app/data/syntheticCatalog';
 import InputPanel from './InputPanel';
 import KpiCards from './KpiCards';
 import MetricsChart from './MetricsChart';
 import WorldMap from './WorldMap';
-import RecommendationBanner from './RecommendationBanner';
+import BomTable from './BomTable';
 
 // ---------------------------------------------------------------------------
 // Weight slider helpers
@@ -66,7 +66,7 @@ const SLIDER_COLORS = ['text-emerald-400', 'text-amber-400', 'text-sky-400'] as 
 // ---------------------------------------------------------------------------
 
 export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApiKey?: string }) {
-  const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [result, setResult] = useState<ProjectResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sliders, setSliders] = useState<SliderValues>([33, 33, 34]);
@@ -76,11 +76,13 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
     targetLocation: string;
     targetLat: number;
     targetLng: number;
-    volume: number;
+    floors: number;
+    sqFtPerFloor: number;
+    spaceMix: SpaceMix;
   } | null>(null);
   const reoptimizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  async function callApi(body: Record<string, unknown>): Promise<OptimizationResult> {
+  async function callApi(body: Record<string, unknown>): Promise<ProjectResult> {
     const res = await fetch('/api/optimize', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -90,7 +92,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
       const err = (await res.json().catch(() => null)) as { error?: string } | null;
       throw new Error(err?.error ?? `Server error ${res.status}`);
     }
-    return res.json() as Promise<OptimizationResult>;
+    return res.json() as Promise<ProjectResult>;
   }
 
   async function handleAnalyze(query: string, solverMode: SolverMode) {
@@ -104,7 +106,21 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
         targetLocation: data.targetLocation,
         targetLat: data.targetLat,
         targetLng: data.targetLng,
-        volume: data.volume,
+        floors: data.floors,
+        sqFtPerFloor: Math.round(data.sqFtTotal / data.floors),
+        spaceMix: data.weights
+          ? {
+              openOfficePct: 0.65,
+              enclosedOfficePct: 0.10,
+              conferencePct: 0.15,
+              loungePct: 0.10,
+            }
+          : {
+              openOfficePct: 0.65,
+              enclosedOfficePct: 0.10,
+              conferencePct: 0.15,
+              loungePct: 0.10,
+            },
       };
       setSliders([
         Math.round(data.weights.carbonWeight * 100),
@@ -149,7 +165,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">MatrixForge</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
-          Multi-Variable Supply Chain Optimizer
+            Multi-Variable Supply Chain Optimizer
             {result && (
               <>
                 {' '}·{' '}
@@ -163,7 +179,8 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
         </div>
         {result && (
           <Badge variant="outline" className="text-xs shrink-0 mt-1">
-            {result.winningFactoryName} → {result.targetLocation}
+            {result.activeFactoryCount} factor{result.activeFactoryCount !== 1 ? 'ies' : 'y'} →{' '}
+            {result.targetLocation}
           </Badge>
         )}
       </header>
@@ -227,12 +244,15 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
               <div>
                 <p className="text-sm font-semibold text-foreground">Run your first analysis</p>
                 <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed max-w-md">
-                  Describe a manufacturing project on the left. MatrixForge parses it with AI, then
-                  scores every factory × component pairing across cost, carbon, and freight
-                  — resolving the global optimum across{' '}
-                  <span className="text-foreground font-medium">24,904 synthetic SKUs</span> indexed in ChromaDB across{' '}
-                  <span className="text-foreground font-medium">{factories.length} manufacturing nodes</span>.
-                  Architecture is Vector DB ready for enterprise catalog migration at scale.
+                  Describe a workspace project below. MatrixForge uses AI to extract the space
+                  program (floors, sq ft, space mix), then builds a full Bill of Materials — scoring
+                  every factory × component pairing across cost, carbon, and freight across{' '}
+                  <span className="text-foreground font-medium">24,904 synthetic SKUs</span> in
+                  ChromaDB across{' '}
+                  <span className="text-foreground font-medium">
+                    {factories.length} manufacturing nodes
+                  </span>
+                  .
                 </p>
               </div>
               <div className="flex flex-col gap-2">
@@ -257,8 +277,8 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
 
           {isLoading && !result && (
             <div className="flex flex-col gap-4 animate-pulse">
-              <div className="grid grid-cols-3 gap-3">
-                {[1, 2, 3].map((n) => (
+              <div className="grid grid-cols-4 gap-3">
+                {[1, 2, 3, 4].map((n) => (
                   <div key={n} className="h-24 rounded-lg bg-card border border-border" />
                 ))}
               </div>
@@ -267,21 +287,26 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
           )}
 
           {result && (
-            <div className={isLoading ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
+            <div
+              className={
+                isLoading
+                  ? 'opacity-50 pointer-events-none transition-opacity'
+                  : 'transition-opacity'
+              }
+            >
               <div className="flex flex-col gap-4">
-                <RecommendationBanner result={result} />
                 <KpiCards result={result} />
+                <BomTable bom={result.bom} totalProjectCost={result.totalProjectCost} />
                 <WorldMap
                   apiKey={googleMapsApiKey}
-                  factories={factories}
-                  winningFactoryId={result.winningFactoryId}
+                  activeFactories={result.activeFactories}
                   targetCity={{
                     name: result.targetLocation,
                     lat: result.targetLat,
                     lng: result.targetLng,
                   }}
                 />
-                <MetricsChart breakdown={result.breakdown} />
+                <MetricsChart bom={result.bom} />
               </div>
             </div>
           )}

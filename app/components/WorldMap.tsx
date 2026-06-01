@@ -2,12 +2,11 @@
 
 import { useEffect } from 'react';
 import { APIProvider, Map, useMap } from '@vis.gl/react-google-maps';
-import type { Factory } from '@/app/data/syntheticCatalog';
+import type { ActiveFactory } from '@/lib/types';
 
 interface WorldMapProps {
   apiKey: string;
-  factories: Factory[];
-  winningFactoryId: string;
+  activeFactories: ActiveFactory[];
   targetCity: { name: string; lat: number; lng: number };
 }
 
@@ -23,14 +22,31 @@ const DARK_STYLES: google.maps.MapTypeStyle[] = [
   { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2d4a6e' }] },
 ];
 
+// Factory color palette — one color per FAC slot
+const FACTORY_STROKE: Record<string, string> = {
+  FAC_A: '#34d399', // emerald
+  FAC_B: '#38bdf8', // sky
+  FAC_C: '#a78bfa', // violet
+  FAC_D: '#fbbf24', // amber
+  FAC_E: '#fb7185', // rose
+};
+
+const FACTORY_FILL: Record<string, string> = {
+  FAC_A: '#052e16',
+  FAC_B: '#0c4a6e',
+  FAC_C: '#2e1065',
+  FAC_D: '#451a03',
+  FAC_E: '#4c0519',
+};
+
 // ── Route polyline ────────────────────────────────────────────────────────────
 interface RoutePolylineProps {
   from: google.maps.LatLngLiteral;
   to: google.maps.LatLngLiteral;
-  isWinner: boolean;
+  color: string;
 }
 
-function RoutePolyline({ from, to, isWinner }: RoutePolylineProps) {
+function RoutePolyline({ from, to, color }: RoutePolylineProps) {
   const map = useMap();
 
   useEffect(() => {
@@ -38,13 +54,13 @@ function RoutePolyline({ from, to, isWinner }: RoutePolylineProps) {
     const line = new google.maps.Polyline({
       path: [from, to],
       geodesic: true,
-      strokeColor: isWinner ? '#34d399' : '#64748b',
-      strokeOpacity: isWinner ? 0.9 : 0.65,
-      strokeWeight: isWinner ? 2.5 : 1.5,
+      strokeColor: color,
+      strokeOpacity: 0.85,
+      strokeWeight: 2.5,
     });
     line.setMap(map);
     return () => line.setMap(null);
-  }, [map, from.lat, from.lng, to.lat, to.lng, isWinner]);
+  }, [map, from.lat, from.lng, to.lat, to.lng, color]);
 
   return null;
 }
@@ -85,45 +101,30 @@ function DotMarker({ position, label, fillColor, strokeColor, scale = 7 }: DotMa
 // ── Inner content (must be a child of <Map>) ──────────────────────────────────
 type MapContentProps = Omit<WorldMapProps, 'apiKey'>;
 
-function MapContent({ factories, winningFactoryId, targetCity }: MapContentProps) {
+function MapContent({ activeFactories, targetCity }: MapContentProps) {
   return (
     <>
-      {/* Non-winning routes first so winning route renders on top */}
-      {factories
-        .filter((f) => f.id !== winningFactoryId)
-        .map((f) => (
-          <RoutePolyline
-            key={`route-${f.id}`}
-            from={{ lat: f.lat, lng: f.lng }}
-            to={{ lat: targetCity.lat, lng: targetCity.lng }}
-            isWinner={false}
-          />
-        ))}
-      {factories
-        .filter((f) => f.id === winningFactoryId)
-        .map((f) => (
-          <RoutePolyline
-            key={`route-${f.id}`}
-            from={{ lat: f.lat, lng: f.lng }}
-            to={{ lat: targetCity.lat, lng: targetCity.lng }}
-            isWinner={true}
-          />
-        ))}
+      {/* One colored route per active factory */}
+      {activeFactories.map((f) => (
+        <RoutePolyline
+          key={`route-${f.id}`}
+          from={{ lat: f.lat, lng: f.lng }}
+          to={{ lat: targetCity.lat, lng: targetCity.lng }}
+          color={FACTORY_STROKE[f.id] ?? '#64748b'}
+        />
+      ))}
 
       {/* Factory markers */}
-      {factories.map((f) => {
-        const isWinner = f.id === winningFactoryId;
-        return (
-          <DotMarker
-            key={`marker-${f.id}`}
-            position={{ lat: f.lat, lng: f.lng }}
-            label={f.name}
-            fillColor={isWinner ? '#34d399' : '#38bdf8'}
-            strokeColor={isWinner ? '#052e16' : '#0c4a6e'}
-            scale={isWinner ? 9 : 7}
-          />
-        );
-      })}
+      {activeFactories.map((f) => (
+        <DotMarker
+          key={`marker-${f.id}`}
+          position={{ lat: f.lat, lng: f.lng }}
+          label={f.name}
+          fillColor={FACTORY_STROKE[f.id] ?? '#94a3b8'}
+          strokeColor={FACTORY_FILL[f.id] ?? '#0a1628'}
+          scale={9}
+        />
+      ))}
 
       {/* Target city */}
       <DotMarker
@@ -138,7 +139,7 @@ function MapContent({ factories, winningFactoryId, targetCity }: MapContentProps
 }
 
 // ── Public component ──────────────────────────────────────────────────────────
-export default function WorldMap({ apiKey, factories, winningFactoryId, targetCity }: WorldMapProps) {
+export default function WorldMap({ apiKey, activeFactories, targetCity }: WorldMapProps) {
   if (!apiKey) {
     return (
       <div
@@ -155,8 +156,8 @@ export default function WorldMap({ apiKey, factories, winningFactoryId, targetCi
     );
   }
 
-  const allLats = [...factories.map((f) => f.lat), targetCity.lat];
-  const allLngs = [...factories.map((f) => f.lng), targetCity.lng];
+  const allLats = [...activeFactories.map((f) => f.lat), targetCity.lat];
+  const allLngs = [...activeFactories.map((f) => f.lng), targetCity.lng];
   const center: google.maps.LatLngLiteral = {
     lat: (Math.min(...allLats) + Math.max(...allLats)) / 2,
     lng: (Math.min(...allLngs) + Math.max(...allLngs)) / 2,
@@ -177,8 +178,7 @@ export default function WorldMap({ apiKey, factories, winningFactoryId, targetCi
           styles={DARK_STYLES}
         >
           <MapContent
-            factories={factories}
-            winningFactoryId={winningFactoryId}
+            activeFactories={activeFactories}
             targetCity={targetCity}
           />
         </Map>

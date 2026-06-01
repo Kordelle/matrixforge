@@ -11,39 +11,48 @@ import {
   Cell,
 } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import type { FactoryBreakdown } from '@/lib/types';
+import type { BomLine } from '@/lib/types';
 
-const TOP_N = 15;
+// Factory color fill per FAC slot — mirrors BomTable and WorldMap
+const FACTORY_FILL: Record<string, string> = {
+  FAC_A: '#34d399',
+  FAC_B: '#38bdf8',
+  FAC_C: '#a78bfa',
+  FAC_D: '#fbbf24',
+  FAC_E: '#fb7185',
+};
 
 interface MetricsChartProps {
-  breakdown: FactoryBreakdown[];
+  bom: BomLine[];
 }
 
-export default function MetricsChart({ breakdown }: MetricsChartProps) {
-  const visible = breakdown.slice(0, TOP_N);
-  const chartData = visible.map((b, i) => ({
-    label: b.itemName.length > 30 ? b.itemName.slice(0, 28) + '…' : b.itemName,
-    fullName: b.itemName,
-    factory: b.factoryName.split(',')[0],
-    score: Math.round(b.compositeScore * 100),
-    cost: b.totalCostPerUnit,
-    carbon: b.carbonScore,
-    isWinner: i === 0,
-  }));
+export default function MetricsChart({ bom }: MetricsChartProps) {
+  const chartData = bom
+    .slice()
+    .sort((a, b) => b.totalCost - a.totalCost)
+    .map((line) => ({
+      label:
+        line.categoryLabel.length > 22
+          ? line.categoryLabel.slice(0, 20) + '…'
+          : line.categoryLabel,
+      fullLabel: line.categoryLabel,
+      factory: line.factoryName.split(',')[0],
+      factoryId: line.factoryId,
+      totalCost: line.totalCost,
+      qty: line.quantity,
+      carbon: line.totalCarbon,
+    }));
 
-  const chartHeight = Math.max(visible.length * 32 + 24, 200);
+  const chartHeight = Math.max(chartData.length * 36 + 24, 200);
 
   return (
     <Card className="bg-card border-border">
       <CardHeader className="pb-1 pt-4">
         <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-          {breakdown.length} Configurations Evaluated
-          {breakdown.length > TOP_N && (
-            <span className="normal-case font-normal ml-1">· Top {TOP_N} shown</span>
-          )}
+          Cost Distribution by Category
         </CardTitle>
         <p className="text-xs text-muted-foreground">
-          Composite score = weighted cost + carbon + freight · lower is better · green bar = winner
+          Total cost per BOM line · color = sourcing factory
         </p>
       </CardHeader>
       <CardContent className="pb-4 pr-4">
@@ -56,7 +65,13 @@ export default function MetricsChart({ breakdown }: MetricsChartProps) {
             <CartesianGrid strokeDasharray="3 3" stroke="oklch(0.25 0 0)" horizontal={false} />
             <XAxis
               type="number"
-              domain={[0, 100]}
+              tickFormatter={(v: number) =>
+                v >= 1_000_000
+                  ? `$${(v / 1_000_000).toFixed(1)}M`
+                  : v >= 1_000
+                    ? `$${(v / 1_000).toFixed(0)}k`
+                    : `$${v}`
+              }
               tick={{ fill: 'oklch(0.6 0 0)', fontSize: 10 }}
               axisLine={{ stroke: 'oklch(0.3 0 0)' }}
               tickLine={false}
@@ -64,7 +79,7 @@ export default function MetricsChart({ breakdown }: MetricsChartProps) {
             <YAxis
               type="category"
               dataKey="label"
-              width={190}
+              width={140}
               tick={{ fill: 'oklch(0.65 0 0)', fontSize: 11, fontFamily: 'sans-serif' }}
               axisLine={false}
               tickLine={false}
@@ -79,19 +94,21 @@ export default function MetricsChart({ breakdown }: MetricsChartProps) {
                 fontSize: 12,
               }}
               labelFormatter={(label, payload) => {
-                const item = payload?.[0]?.payload as typeof chartData[0] | undefined;
-                return item ? `${item.fullName} · ${item.factory}` : label;
+                const item = payload?.[0]?.payload as (typeof chartData)[0] | undefined;
+                return item ? `${item.fullLabel} · ${item.factory}` : label;
               }}
               formatter={(value, name) => {
-                if (name === 'score') return [`${value}%`, 'Composite Score'];
-                if (name === 'cost') return [`$${value}`, 'Cost/unit'];
-                if (name === 'carbon') return [value, 'Carbon Score'];
+                if (name === 'totalCost')
+                  return [
+                    `$${Number(value).toLocaleString(undefined, { maximumFractionDigits: 0 })}`,
+                    'Total Cost',
+                  ];
                 return [value, name];
               }}
             />
-            <Bar dataKey="score" barSize={18} radius={[0, 3, 3, 0]}>
+            <Bar dataKey="totalCost" barSize={20} radius={[0, 3, 3, 0]}>
               {chartData.map((entry, idx) => (
-                <Cell key={`cell-${idx}`} fill={entry.isWinner ? '#34d399' : '#334155'} />
+                <Cell key={`cell-${idx}`} fill={FACTORY_FILL[entry.factoryId] ?? '#334155'} />
               ))}
             </Bar>
           </BarChart>
