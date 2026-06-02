@@ -55,6 +55,7 @@ const DirectInputSchema = z.object({
   floors: z.number().int().positive().default(1),
   sqFtPerFloor: z.number().positive().default(10000),
   spaceMix: SpaceMixSchema,
+  scopeHint: z.enum(['full_fitout', 'furniture_only', 'collaboration_focus', 'office_shell']).default('full_fitout'),
   weights: WeightsSchema,
   mode: z.enum(['sequential', 'parallel']).default('parallel'),
 });
@@ -73,6 +74,7 @@ const LLMOutputSchema = z.object({
       loungePct: z.number().min(0).max(1).default(0.10),
     })
     .default({ openOfficePct: 0.65, enclosedOfficePct: 0.10, conferencePct: 0.15, loungePct: 0.10 }),
+  scopeHint: z.enum(['full_fitout', 'furniture_only', 'collaboration_focus', 'office_shell']).default('full_fitout'),
   weights: WeightsSchema,
 });
 
@@ -93,6 +95,7 @@ Return ONLY valid JSON with these exact fields:
     "conferencePct": <0.0-1.0>,
     "loungePct": <0.0-1.0>
   },
+  "scopeHint": "full_fitout" | "furniture_only" | "collaboration_focus" | "office_shell",
   "weights": {
     "carbonWeight": <0.0-1.0>,
     "costWeight": <0.0-1.0>,
@@ -103,6 +106,7 @@ Return ONLY valid JSON with these exact fields:
 Rules:
 - weights must sum to exactly 1.0
 - spaceMix values must sum to exactly 1.0
+- scopeHint: choose the narrowest honest interpretation of the request. Use "furniture_only" when the request is explicitly limited to seating/chairs/furniture; "office_shell" when it focuses on structure/fit-out; "collaboration_focus" when the request emphasizes conference/lounge/collaboration; otherwise use "full_fitout".
 - Infer weights from stated priorities: "low carbon" / "eco" / "green" = high carbonWeight; "fast" / "quick delivery" = high speedWeight; "budget" / "low cost" = high costWeight
 - Default equal weights (0.33, 0.33, 0.34) if no priorities stated
 - targetLocation must be one of: "Chicago, IL" | "New York, NY" | "Los Angeles, CA" | "Toronto, Canada" | "Mexico City, Mexico" | "São Paulo, Brazil" | "London, UK" | "Frankfurt, Germany" | "Cairo, Egypt" | "Dubai, UAE" | "Mumbai, India" | "Singapore" | "Tokyo, Japan" | "Seoul, South Korea" | "Sydney, Australia" — pick the geographically closest match
@@ -192,7 +196,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       );
     }
 
-    const { targetLocation, floors, sqFtPerFloor, spaceMix, weights } = llmResult.data;
+    const { targetLocation, floors, sqFtPerFloor, spaceMix, scopeHint, weights } = llmResult.data;
     const city = resolveCity(targetLocation) ?? clientCities[0];
 
     solverPayload = {
@@ -202,6 +206,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       floors,
       sqFtPerFloor,
       spaceMix,
+      scopeHint,
       weights,
       mode,
     };
@@ -209,9 +214,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // -----------------------------------------------------------------------
     // Direct path: pre-parsed data provided — skip LLM (slider re-optimization)
     // -----------------------------------------------------------------------
-    const { targetLocation, targetLat, targetLng, floors, sqFtPerFloor, spaceMix, weights, mode } =
+    const { targetLocation, targetLat, targetLng, floors, sqFtPerFloor, spaceMix, scopeHint, weights, mode } =
       inputResult.data;
-    solverPayload = { targetLocation, targetLat, targetLng, floors, sqFtPerFloor, spaceMix, weights, mode };
+    solverPayload = { targetLocation, targetLat, targetLng, floors, sqFtPerFloor, spaceMix, scopeHint, weights, mode };
   }
 
   // 2. POST to FastAPI compute engine

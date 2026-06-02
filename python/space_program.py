@@ -119,6 +119,7 @@ def calculate_space_program(
     enclosed_office_pct: float,
     conference_pct: float,
     lounge_pct: float,
+    scope_hint: str = "full_fitout",
 ) -> SpaceProgramResult:
     """Return BOM quantities derived from space-program parameters.
 
@@ -164,6 +165,19 @@ def calculate_space_program(
     _add(CONF_SMALL_BOM, conf_small)
     _add(CONF_LARGE_BOM, conf_large)
     _add(LOUNGE_BOM, lounge_clusters)
+
+    # Narrow scopes intentionally suppress supporting categories so the result
+    # reads like an inference engine instead of a full-shell calculator.
+    scope_hint = (scope_hint or "full_fitout").lower()
+    if scope_hint == "furniture_only":
+        allowed = {"task_chair", "conference_chair", "lounge_chair"}
+        qty = {k: v for k, v in qty.items() if k in allowed}
+    elif scope_hint == "office_shell":
+        allowed = {"panel_frame", "worksurface", "storage", "power_module"}
+        qty = {k: v for k, v in qty.items() if k in allowed}
+    elif scope_hint == "collaboration_focus":
+        allowed = {"task_chair", "conference_chair", "lounge_chair", "power_module"}
+        qty = {k: v for k, v in qty.items() if k in allowed}
 
     # Convert to integers, drop zero quantities
     bom_int: dict[str, int] = {k: max(1, round(v)) for k, v in qty.items() if v > 0}

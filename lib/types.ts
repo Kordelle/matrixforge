@@ -13,6 +13,8 @@ export interface SpaceMix {
   loungePct: number;
 }
 
+export type ScopeHint = 'full_fitout' | 'furniture_only' | 'collaboration_focus' | 'office_shell';
+
 /** Shape sent to FastAPI POST /optimize */
 export interface ParsedRequest {
   targetLocation: string;
@@ -21,6 +23,7 @@ export interface ParsedRequest {
   floors: number;
   sqFtPerFloor: number;
   spaceMix: SpaceMix;
+  scopeHint: ScopeHint;
   weights: OptimizationWeights;
   mode: SolverMode;
 }
@@ -57,6 +60,7 @@ export interface ProjectResult {
   targetLng: number;
   floors: number;
   sqFtTotal: number;
+  scopeHint: ScopeHint;
   weights: OptimizationWeights;
   mode: SolverMode;
   bom: BomLine[];

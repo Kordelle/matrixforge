@@ -45,6 +45,7 @@ class OptimizeRequest(CamelModel):
     floors: int = Field(default=1, gt=0)
     sq_ft_per_floor: int = Field(default=10_000, gt=0)
     space_mix: SpaceMix = SpaceMix()
+    scope_hint: str = Field(default="full_fitout")
     weights: OptimizationWeights = OptimizationWeights()
     mode: SolverMode = SolverMode.parallel
 
@@ -120,6 +121,7 @@ class ProjectResult(CamelModel):
     target_lng: float
     floors: int
     sq_ft_total: int
+    scope_hint: str = "full_fitout"
     weights: OptimizationWeights
     mode: SolverMode
     bom: list[BomLine]

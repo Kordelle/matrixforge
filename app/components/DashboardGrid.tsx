@@ -2,9 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
-import type { OptimizationWeights, ProjectResult, SpaceMix, SolverMode } from '@/lib/types';
+import type { ProjectResult, SpaceMix, SolverMode } from '@/lib/types';
 import { factories } from '@/app/data/syntheticCatalog';
 import InputPanel from './InputPanel';
 import KpiCards from './KpiCards';
@@ -14,54 +13,48 @@ import BomTable from './BomTable';
 
 const SURFACE_CLASS = 'border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.35)]';
 
-// ---------------------------------------------------------------------------
-// Weight slider helpers
-// ---------------------------------------------------------------------------
+type FitOutScenario = {
+  id: string;
+  title: string;
+  description: string;
+  spaceMix: SpaceMix;
+};
 
-type SliderValues = [number, number, number]; // [carbon%, cost%, speed%] — always sum to 100
-
-function redistributeSliders(
-  current: SliderValues,
-  changedIdx: number,
-  newVal: number,
-): SliderValues {
-  const clamped = Math.max(0, Math.min(100, Math.round(newVal)));
-  const others = ([0, 1, 2] as const).filter((i) => i !== changedIdx) as [number, number];
-  const remaining = 100 - clamped;
-
-  if (remaining <= 0) {
-    const result: SliderValues = [0, 0, 0];
-    result[changedIdx] = 100;
-    return result;
-  }
-
-  const otherSum = current[others[0]] + current[others[1]];
-  if (otherSum === 0) {
-    const half = Math.floor(remaining / 2);
-    const result: SliderValues = [0, 0, 0];
-    result[changedIdx] = clamped;
-    result[others[0]] = half;
-    result[others[1]] = remaining - half;
-    return result;
-  }
-
-  const result: SliderValues = [0, 0, 0];
-  result[changedIdx] = clamped;
-  result[others[0]] = Math.round((current[others[0]] / otherSum) * remaining);
-  result[others[1]] = remaining - result[others[0]];
-  return result;
-}
-
-function slidersToWeights(sliders: SliderValues): OptimizationWeights {
-  return {
-    carbonWeight: sliders[0] / 100,
-    costWeight: sliders[1] / 100,
-    speedWeight: sliders[2] / 100,
-  };
-}
-
-const SLIDER_LABELS = ['Carbon', 'Cost', 'Speed'] as const;
-const SLIDER_COLORS = ['text-emerald-400', 'text-amber-400', 'text-sky-400'] as const;
+const FIT_OUT_SCENARIOS: FitOutScenario[] = [
+  {
+    id: 'chair-heavy',
+    title: 'Chair-heavy refresh',
+    description: 'Best when the request is seating-centric or literally says "only chairs".',
+    spaceMix: {
+      openOfficePct: 0.20,
+      enclosedOfficePct: 0.15,
+      conferencePct: 0.10,
+      loungePct: 0.55,
+    },
+  },
+  {
+    id: 'balanced-office',
+    title: 'Balanced office baseline',
+    description: 'A practical full-fitout mix for a standard office campus.',
+    spaceMix: {
+      openOfficePct: 0.55,
+      enclosedOfficePct: 0.10,
+      conferencePct: 0.20,
+      loungePct: 0.15,
+    },
+  },
+  {
+    id: 'collaboration-suite',
+    title: 'Collaboration suite',
+    description: 'Biases the space toward meeting rooms and breakout areas.',
+    spaceMix: {
+      openOfficePct: 0.30,
+      enclosedOfficePct: 0.10,
+      conferencePct: 0.35,
+      loungePct: 0.25,
+    },
+  },
+];
 
 // ---------------------------------------------------------------------------
 // Component
@@ -71,7 +64,6 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
   const [result, setResult] = useState<ProjectResult | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [sliders, setSliders] = useState<SliderValues>([33, 33, 34]);
   const [mode, setMode] = useState<SolverMode>('parallel');
 
   const parsedCacheRef = useRef<{
@@ -81,6 +73,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
     floors: number;
     sqFtPerFloor: number;
     spaceMix: SpaceMix;
+    scopeHint: 'full_fitout' | 'furniture_only' | 'collaboration_focus' | 'office_shell';
   } | null>(null);
   const reoptimizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -110,25 +103,14 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
         targetLng: data.targetLng,
         floors: data.floors,
         sqFtPerFloor: Math.round(data.sqFtTotal / data.floors),
-        spaceMix: data.weights
-          ? {
-              openOfficePct: 0.65,
-              enclosedOfficePct: 0.10,
-              conferencePct: 0.15,
-              loungePct: 0.10,
-            }
-          : {
-              openOfficePct: 0.65,
-              enclosedOfficePct: 0.10,
-              conferencePct: 0.15,
-              loungePct: 0.10,
-            },
+        spaceMix: {
+          openOfficePct: 0.65,
+          enclosedOfficePct: 0.10,
+          conferencePct: 0.15,
+          loungePct: 0.10,
+        },
+        scopeHint: data.scopeHint,
       };
-      setSliders([
-        Math.round(data.weights.carbonWeight * 100),
-        Math.round(data.weights.costWeight * 100),
-        Math.round(data.weights.speedWeight * 100),
-      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
@@ -136,27 +118,23 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
     }
   }
 
-  async function handleReoptimize(newSliders: SliderValues, solverMode: SolverMode) {
+  async function handleScenarioPreview(spaceMix: SpaceMix) {
     const cache = parsedCacheRef.current;
     if (!cache) return;
     setIsLoading(true);
     setError(null);
     try {
-      const data = await callApi({ ...cache, weights: slidersToWeights(newSliders), mode: solverMode });
+      const data = await callApi({
+        ...cache,
+        spaceMix,
+        mode,
+      });
       setResult(data);
+      parsedCacheRef.current = { ...cache, spaceMix };
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsLoading(false);
-    }
-  }
-
-  function handleSliderChange(idx: number, newVal: number) {
-    const newSliders = redistributeSliders(sliders, idx, newVal);
-    setSliders(newSliders);
-    if (parsedCacheRef.current) {
-      if (reoptimizeTimer.current) clearTimeout(reoptimizeTimer.current);
-      reoptimizeTimer.current = setTimeout(() => handleReoptimize(newSliders, mode), 600);
     }
   }
 
@@ -172,8 +150,11 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div className="max-w-3xl space-y-3">
               <div className="flex flex-wrap items-center gap-2">
+                <Badge className="border-red-400/30 bg-red-500/10 text-red-200 hover:bg-red-500/10">
+                  In Development
+                </Badge>
                 <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/10">
-                  BOM-first console
+                  Synthetic Data
                 </Badge>
                 <Badge variant="outline" className="border-sky-400/30 bg-sky-500/10 text-sky-200">
                   Live LLM + FastAPI + ChromaDB
@@ -190,8 +171,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
                   MatrixForge
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 md:text-[15px]">
-                  Parse a space program, generate a full BOM, and route every category to the best factories.
-                  The UI is now BOM-first: category lines, active factories, carbon savings, and project totals.
+                  Analyze workspace requiremnents, generate a full BOM, and route logistics to the best factories.
                 </p>
               </div>
 
@@ -211,7 +191,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
             {result && (
               <div className="flex flex-wrap gap-2 lg:justify-end">
                 <Badge variant="outline" className="border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">
-                  {result.activeFactoryCount} active factory{result.activeFactoryCount !== 1 ? 'ies' : 'y'}
+                  {result.activeFactoryCount} active factor{result.activeFactoryCount !== 1 ? 'ies' : 'y'}
                 </Badge>
                 <Badge variant="outline" className="border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">
                   {result.bom.length} BOM categories
@@ -239,53 +219,31 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
               </div>
             </div>
           )}
+
+          {result && (
+            <div className="mt-3 rounded-xl border border-sky-400/20 bg-sky-500/10 px-4 py-3 text-xs text-sky-100">
+              <span className="font-semibold uppercase tracking-[0.18em] text-sky-200">Inferred scope</span>
+              <p className="mt-1 text-sm text-slate-100">
+                {result.scopeHint === 'furniture_only' && 'Furniture-only request detected. Structural shell categories are suppressed so the BOM reflects what the user actually asked for.'}
+                {result.scopeHint === 'collaboration_focus' && 'Collaboration-heavy request detected. Conference and lounge categories are prioritized ahead of office shell expansion.'}
+                {result.scopeHint === 'office_shell' && 'Office-shell request detected. Structural and support categories take priority over furniture-heavy fit-out items.'}
+                {result.scopeHint === 'full_fitout' && 'Full fit-out detected. The engine is solving the complete office package and then surfacing adjacent planning scenarios.'}
+              </p>
+            </div>
+          )}
         </header>
 
         <div className="grid grid-cols-1 gap-4 xl:grid-cols-[390px_minmax(0,1fr)]">
-        {/* Left column */}
-        <div className="flex flex-col gap-4">
+          {/* Left column */}
+          <div className="flex flex-col gap-4">
           <Card className={SURFACE_CLASS}>
             <CardContent className="pt-5 px-5 pb-5">
               <InputPanel onAnalyze={handleAnalyze} isLoading={isLoading} />
             </CardContent>
           </Card>
 
-          <Card className={SURFACE_CLASS}>
-            <CardHeader className="pb-2 pt-4">
-              <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
-                Optimization Weights
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {parsedCacheRef.current
-                  ? 'Drag to live re-optimize · applied automatically'
-                  : 'Inferred from your request after first analysis · drag to adjust'}
-              </p>
-            </CardHeader>
-            <CardContent className="px-5 pb-5 flex flex-col gap-4">
-              {SLIDER_LABELS.map((label, i) => (
-                <div key={label} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between items-center">
-                    <span className={`text-xs font-medium ${SLIDER_COLORS[i]}`}>{label}</span>
-                    <span className="text-xs text-muted-foreground tabular-nums font-mono">
-                      {sliders[i]}%
-                    </span>
-                  </div>
-                  <Slider
-                    value={[sliders[i]]}
-                    onValueChange={(val) => {
-                      const v = Array.isArray(val) ? (val[0] as number) : (val as number);
-                      handleSliderChange(i, v);
-                    }}
-                    min={0}
-                    max={100}
-                    step={1}
-                    disabled={isLoading}
-                  />
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+
+          </div>
 
         {/* Right columns — results */}
         <div className="flex flex-col gap-4">
@@ -329,6 +287,50 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
                 </div>
               </div>
             </div>
+          )}
+
+          {result && parsedCacheRef.current && (
+            <Card className={SURFACE_CLASS}>
+              <CardHeader className="pb-2 pt-4">
+                <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                  Planning Scenarios
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  Explore adjacent fit-out interpretations before locking the BOM. This makes the app
+                  behave like a planning engine, not just a single-shot calculator.
+                </p>
+              </CardHeader>
+              <CardContent className="grid gap-3 md:grid-cols-3 px-5 pb-5">
+                {FIT_OUT_SCENARIOS.map((scenario) => (
+                  <button
+                    key={scenario.id}
+                    type="button"
+                    onClick={() => handleScenarioPreview(scenario.spaceMix)}
+                    disabled={isLoading}
+                    className="rounded-xl border border-white/10 bg-white/5 p-4 text-left transition-colors hover:border-sky-400/40 hover:bg-sky-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-sm font-semibold text-white">{scenario.title}</p>
+                      <span className="rounded-full border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-[0.18em] text-slate-400">
+                        preview
+                      </span>
+                    </div>
+                    <p className="mt-2 text-xs leading-5 text-slate-300">{scenario.description}</p>
+                    <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] text-slate-300">
+                      <span className="rounded-full bg-emerald-500/10 px-2 py-1 text-emerald-200">
+                        Open {Math.round(scenario.spaceMix.openOfficePct * 100)}%
+                      </span>
+                      <span className="rounded-full bg-violet-500/10 px-2 py-1 text-violet-200">
+                        Conf {Math.round(scenario.spaceMix.conferencePct * 100)}%
+                      </span>
+                      <span className="rounded-full bg-amber-500/10 px-2 py-1 text-amber-200">
+                        Lounge {Math.round(scenario.spaceMix.loungePct * 100)}%
+                      </span>
+                    </div>
+                  </button>
+                ))}
+              </CardContent>
+            </Card>
           )}
 
           {isLoading && !result && (

@@ -421,6 +421,7 @@ def run_project_solver(
         target_lng=request.target_lng,
         floors=request.floors,
         sq_ft_total=space_program.total_sqft,
+        scope_hint=request.scope_hint,
         weights=request.weights,
         mode=request.mode,
         bom=bom,

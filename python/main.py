@@ -196,6 +196,7 @@ async def optimize(optimize_request: OptimizeRequest, request: Request) -> JSONR
             enclosed_office_pct=optimize_request.space_mix.enclosed_office_pct,
             conference_pct=optimize_request.space_mix.conference_pct,
             lounge_pct=optimize_request.space_mix.lounge_pct,
+            scope_hint=optimize_request.scope_hint,
         )
 
         if not sp.bom_quantities:

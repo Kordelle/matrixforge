@@ -12,9 +12,21 @@ interface InputPanelProps {
 }
 
 const EXAMPLES = [
-  'Outfit a 3-floor office campus in Chicago using Compose workstations. Prioritize low carbon footprint and mid-range costs.',
-  'Equip a new call center in Cairo, Egypt. Fastest delivery matters most, cost is secondary.',
-  'Furnish 250 workstations in Tokyo, Japan. Balance cost and sustainability equally.',
+  {
+    title: 'Full office campus',
+    query:
+      'Outfit a 3-floor office campus in Chicago with about 30,000 sq ft total. Prioritize low carbon footprint and mid-range costs.',
+  },
+  {
+    title: 'Furniture-only refresh',
+    query:
+      'Outfit a 2-floor, 18,000 sq ft workspace in Toronto with only chairs and lounge seating. Keep the design lightweight and fast to deliver.',
+  },
+  {
+    title: 'Conference-heavy buildout',
+    query:
+      'Plan a 4-story executive office in New York with 42,000 sq ft total and a heavy conference-room focus. Prioritize collaboration areas and premium finishes.',
+  },
 ];
 
 function Step({ n, label, sub }: { n: number; label: string; sub: string }) {
@@ -63,22 +75,24 @@ export default function InputPanel({ onAnalyze, isLoading }: InputPanelProps) {
             if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) handleSubmit();
           }}
         />
-        <p className="text-xs text-muted-foreground">Ctrl+Enter to submit</p>
       </div>
 
       {/* Example chips */}
       <div className="flex flex-col gap-1.5">
         <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Try an example</p>
         <div className="flex flex-col gap-1">
-          {EXAMPLES.map((q) => (
+          {EXAMPLES.map((example) => (
             <button
-              key={q}
+              key={example.title}
               type="button"
-              onClick={() => setQuery(q)}
+              onClick={() => setQuery(example.query)}
               disabled={isLoading}
-              className="text-left text-xs text-muted-foreground hover:text-foreground border border-border hover:border-primary/40 hover:bg-primary/5 rounded-md px-2.5 py-1.5 transition-colors line-clamp-1 disabled:opacity-40 cursor-pointer"
+              className="flex flex-col items-start gap-1 text-left text-xs text-muted-foreground hover:text-foreground border border-border hover:border-primary/40 hover:bg-primary/5 rounded-md px-2.5 py-2.5 transition-colors disabled:opacity-40 cursor-pointer"
             >
-              {q}
+              <span className="font-medium text-foreground">{example.title}</span>
+              <span className="line-clamp-2 text-[11px] leading-4 text-muted-foreground">
+                {example.query}
+              </span>
             </button>
           ))}
         </div>
