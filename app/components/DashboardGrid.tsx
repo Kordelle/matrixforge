@@ -12,6 +12,8 @@ import MetricsChart from './MetricsChart';
 import WorldMap from './WorldMap';
 import BomTable from './BomTable';
 
+const SURFACE_CLASS = 'border-white/10 bg-white/5 backdrop-blur-xl shadow-[0_24px_80px_rgba(0,0,0,0.35)]';
+
 // ---------------------------------------------------------------------------
 // Weight slider helpers
 // ---------------------------------------------------------------------------
@@ -159,42 +161,96 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
   }
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 md:px-6 lg:px-8">
-      {/* Header */}
-      <header className="mb-6 flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">MatrixForge</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Multi-Variable Supply Chain Optimizer
-            {result && (
-              <>
-                {' '}·{' '}
-                <span className="font-mono">
-                  {result.mode === 'parallel' ? 'Matrix Parallel' : 'Sequential'} ·{' '}
-                  {result.solverDurationMs}ms
-                </span>
-              </>
-            )}
-          </p>
-        </div>
-        {result && (
-          <Badge variant="outline" className="text-xs shrink-0 mt-1">
-            {result.activeFactoryCount} factor{result.activeFactoryCount !== 1 ? 'ies' : 'y'} →{' '}
-            {result.targetLocation}
-          </Badge>
-        )}
-      </header>
+    <div className="relative min-h-screen overflow-hidden bg-[radial-gradient(circle_at_top,_rgba(56,189,248,0.14),_transparent_28%),radial-gradient(circle_at_85%_15%,_rgba(168,85,247,0.12),_transparent_24%),linear-gradient(180deg,_#060816_0%,_#050816_100%)] px-4 py-6 text-slate-100 md:px-6 lg:px-8">
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(to_right,rgba(255,255,255,0.04)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.04)_1px,transparent_1px)] bg-[size:64px_64px] opacity-20" />
+      <div className="pointer-events-none absolute -left-24 top-24 h-64 w-64 rounded-full bg-emerald-500/10 blur-3xl" />
+      <div className="pointer-events-none absolute right-0 top-32 h-80 w-80 rounded-full bg-sky-500/10 blur-3xl" />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="relative mx-auto flex max-w-[1600px] flex-col gap-4">
+        {/* Header */}
+        <header className={`${SURFACE_CLASS} rounded-2xl px-5 py-4 md:px-6`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+            <div className="max-w-3xl space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Badge className="border-emerald-400/30 bg-emerald-500/10 text-emerald-200 hover:bg-emerald-500/10">
+                  BOM-first console
+                </Badge>
+                <Badge variant="outline" className="border-sky-400/30 bg-sky-500/10 text-sky-200">
+                  Live LLM + FastAPI + ChromaDB
+                </Badge>
+                {result && (
+                  <Badge variant="outline" className="border-violet-400/30 bg-violet-500/10 text-violet-200">
+                    {result.mode === 'parallel' ? 'Matrix Parallel' : 'Sequential'} · {result.solverDurationMs}ms
+                  </Badge>
+                )}
+              </div>
+
+              <div>
+                <h1 className="text-3xl font-semibold tracking-tight text-white md:text-4xl">
+                  MatrixForge
+                </h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 md:text-[15px]">
+                  Parse a space program, generate a full BOM, and route every category to the best factories.
+                  The UI is now BOM-first: category lines, active factories, carbon savings, and project totals.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap gap-2 text-xs text-slate-300">
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  24,904 synthetic SKUs
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  5 manufacturing nodes
+                </span>
+                <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
+                  Space mix → BOM expansion
+                </span>
+              </div>
+            </div>
+
+            {result && (
+              <div className="flex flex-wrap gap-2 lg:justify-end">
+                <Badge variant="outline" className="border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">
+                  {result.activeFactoryCount} active factory{result.activeFactoryCount !== 1 ? 'ies' : 'y'}
+                </Badge>
+                <Badge variant="outline" className="border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">
+                  {result.bom.length} BOM categories
+                </Badge>
+                <Badge variant="outline" className="border-white/10 bg-white/5 px-3 py-1.5 text-xs text-slate-200">
+                  {result.targetLocation}
+                </Badge>
+              </div>
+            )}
+          </div>
+
+          {result && (
+            <div className="mt-4 grid gap-2 rounded-xl border border-white/10 bg-black/20 p-3 text-xs text-slate-300 sm:grid-cols-3">
+              <div>
+                <p className="uppercase tracking-[0.18em] text-slate-400">Project footprint</p>
+                <p className="mt-1 text-sm font-medium text-white">{result.floors} floors · {(result.sqFtTotal / 1000).toFixed(0)}k sq ft</p>
+              </div>
+              <div>
+                <p className="uppercase tracking-[0.18em] text-slate-400">Active factories</p>
+                <p className="mt-1 text-sm font-medium text-white">{result.activeFactories.map((f) => f.name.split(',')[0]).join(' · ')}</p>
+              </div>
+              <div>
+                <p className="uppercase tracking-[0.18em] text-slate-400">Carbon delta</p>
+                <p className="mt-1 text-sm font-medium text-white">{Math.round(result.baselineCarbonKg - result.totalCarbonKg).toLocaleString()} kg CO2e saved</p>
+              </div>
+            </div>
+          )}
+        </header>
+
+        <div className="grid grid-cols-1 gap-4 xl:grid-cols-[390px_minmax(0,1fr)]">
         {/* Left column */}
         <div className="flex flex-col gap-4">
-          <Card className="bg-card border-border">
+          <Card className={SURFACE_CLASS}>
             <CardContent className="pt-5 px-5 pb-5">
               <InputPanel onAnalyze={handleAnalyze} isLoading={isLoading} />
             </CardContent>
           </Card>
 
-          <Card className="bg-card border-border">
+          <Card className={SURFACE_CLASS}>
             <CardHeader className="pb-2 pt-4">
               <CardTitle className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                 Optimization Weights
@@ -232,24 +288,24 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
         </div>
 
         {/* Right columns — results */}
-        <div className="lg:col-span-2 flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           {error && (
-            <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+            <div className="rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
               {error}
             </div>
           )}
 
           {!result && !isLoading && !error && (
-            <div className="rounded-lg border border-dashed border-border px-6 py-6 flex flex-col gap-4">
+            <div className={`${SURFACE_CLASS} rounded-2xl px-6 py-6 flex flex-col gap-4`}>
               <div>
-                <p className="text-sm font-semibold text-foreground">Run your first analysis</p>
-                <p className="text-sm text-muted-foreground mt-1.5 leading-relaxed max-w-md">
+                <p className="text-sm font-semibold text-white">Run your first analysis</p>
+                <p className="text-sm text-slate-300 mt-1.5 leading-relaxed max-w-2xl">
                   Describe a workspace project below. MatrixForge uses AI to extract the space
                   program (floors, sq ft, space mix), then builds a full Bill of Materials — scoring
                   every factory × component pairing across cost, carbon, and freight across{' '}
-                  <span className="text-foreground font-medium">24,904 synthetic SKUs</span> in
+                  <span className="text-white font-medium">24,904 synthetic SKUs</span> in
                   ChromaDB across{' '}
-                  <span className="text-foreground font-medium">
+                  <span className="text-white font-medium">
                     {factories.length} manufacturing nodes
                   </span>
                   .
@@ -263,11 +319,11 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
                   {factories.map((f) => (
                     <span
                       key={f.id}
-                      className="inline-flex items-center gap-1.5 rounded border border-border px-2.5 py-1 text-xs"
+                      className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-200"
                     >
                       <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0" />
-                      <span className="font-medium text-foreground">{f.name}</span>
-                      <span className="text-muted-foreground">· {f.specialty}</span>
+                      <span className="font-medium text-white">{f.name}</span>
+                      <span className="text-slate-400">· {f.specialty}</span>
                     </span>
                   ))}
                 </div>
@@ -279,10 +335,10 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
             <div className="flex flex-col gap-4 animate-pulse">
               <div className="grid grid-cols-4 gap-3">
                 {[1, 2, 3, 4].map((n) => (
-                  <div key={n} className="h-24 rounded-lg bg-card border border-border" />
+                  <div key={n} className={`${SURFACE_CLASS} h-24 rounded-xl`} />
                 ))}
               </div>
-              <div className="h-52 rounded-lg bg-card border border-border" />
+              <div className={`${SURFACE_CLASS} h-52 rounded-xl`} />
             </div>
           )}
 
@@ -310,6 +366,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
               </div>
             </div>
           )}
+        </div>
         </div>
       </div>
     </div>
