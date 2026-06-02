@@ -171,7 +171,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
                   MatrixForge
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300 md:text-[15px]">
-                  Analyze workspace requiremnents, generate a full BOM, and route logistics to the best factories.
+                  Analyze workspace requirements, generate a full Bill Of Materials, and route logistics to the best factories.
                 </p>
               </div>
 
@@ -180,10 +180,10 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
                   24,904 synthetic SKUs
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                  5 manufacturing nodes
+                  5 manufacturing facilities
                 </span>
                 <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1.5">
-                  Space mix → BOM expansion
+                  Floor Plan → BOM expansion
                 </span>
               </div>
             </div>
@@ -258,7 +258,7 @@ export default function DashboardGrid({ googleMapsApiKey = '' }: { googleMapsApi
               <div>
                 <p className="text-sm font-semibold text-white">Run your first analysis</p>
                 <p className="text-sm text-slate-300 mt-1.5 leading-relaxed max-w-2xl">
-                  Describe a workspace project below. MatrixForge uses AI to extract the space
+                  Describe a workspace project. MatrixForge uses AI to extract the specs of your
                   program (floors, sq ft, space mix), then builds a full Bill of Materials — scoring
                   every factory × component pairing across cost, carbon, and freight across{' '}
                   <span className="text-white font-medium">24,904 synthetic SKUs</span> in
